@@ -1,0 +1,28 @@
+defaults:
+  - _self_
+  - dataset: CellModelPassportsGDSCv2
+  - model: ScreenDL
+  - override hydra/sweeper: optuna
+
+hydra:
+  run:
+    dir: /scratch/ucgd/lustre-work/marth/u0871891/datastore/outputs/hparams/${dataset.name}/${model.name}/runs/${now:%Y-%m-%d}_${now:%H-%M-%S}
+  job:
+    chdir: true
+  sweep:
+    dir: /scratch/ucgd/lustre-work/marth/u0871891/datastore/outputs/hparams/${dataset.name}/${model.name}/${dataset.preprocess.norm}__${dataset.split.name}__fold_${dataset.split.id}__${now:%Y-%m-%d}_${now:%H-%M-%S}/multiruns
+  sweeper:
+    sampler:
+      seed: 123
+    direction: minimize
+    study_name: test
+    storage: null
+    n_trials: 100
+    n_jobs: 1
+    params:
+      model.hyper.batch_size: choice(128, 256, 512, 1024, 2048)
+      model.hyper.learning_rate: tag(log, interval(0.00001, 0.001))
+
+output:
+  log: logs
+  

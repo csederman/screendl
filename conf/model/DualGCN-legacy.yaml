@@ -1,0 +1,12 @@
+name: DualGCN-legacy
+
+hyper:
+  batch_size: 32
+  epochs: 100
+  learning_rate: 0.001
+  units_list: [256]
+  early_stopping: true
+
+io:
+  checkpoints: false
+  save: false
