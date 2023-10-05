@@ -1,0 +1,15 @@
+name: DeepCDR-legacy
+
+hyper:
+  batch_size: 64
+  epochs: 100
+  learning_rate: 0.001
+  units_list: [256, 256, 256]
+  early_stopping: true
+
+io:
+  checkpoints: false
+  save: false
+
+preprocess:
+  use_quantile_norm: true

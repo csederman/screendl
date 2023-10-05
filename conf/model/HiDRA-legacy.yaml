@@ -1,0 +1,8 @@
+name: HiDRA-legacy
+hyper:
+  batch_size: 1024
+  epochs: 100
+  learning_rate: 0.001
+  early_stopping: true
+io:
+  save: false

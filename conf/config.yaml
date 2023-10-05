@@ -1,0 +1,20 @@
+defaults:
+  - dataset: CellModelPassportsGDSCv2
+  - model: ScreenDL
+  - _self_
+
+hydra:
+  run:
+    dir: /scratch/ucgd/lustre-work/marth/u0871891/datastore/outputs/basic/${dataset.name}/${model.name}/runs/${dataset.preprocess.norm}__${dataset.split.name}__fold_${dataset.split.id}__${now:%Y-%m-%d}_${now:%H-%M-%S}
+  job:
+    chdir: true
+  sweep:
+    dir: /scratch/ucgd/lustre-work/marth/u0871891/datastore/outputs/basic/${dataset.name}/${model.name}/multiruns/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    subdir: ${dataset.preprocess.norm}__${dataset.split.name}__fold_${dataset.split.id}
+  sweeper:
+    params:
+      dataset.split.id: 1,2,3,4,5,6,7,8,9,10
+
+output:
+  log: logs
+  
