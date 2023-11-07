@@ -1,0 +1,50 @@
+_root_: "/scratch/ucgd/lustre-work/marth/u0871891/datastore"
+
+dataset:
+  dir: "${_root_}/datasets/${dataset.name}"
+  name: CellModelPassportsGDSCv2TCGA
+  save: True
+  paths:
+    gdsc:
+      meta: "${_root_}/raw/GDSC/drug_list_2023_06_23.csv"
+      resp: "${_root_}/raw/GDSC/GDSC2_fitted_dose_response_24Jul22.xlsx"
+    cmp:
+      meta: "${_root_}/raw/CellModelPassports/model_list_20230608.csv"
+      exp: "${_root_}/raw/CellModelPassports/rnaseq_tpm_20220624.csv"
+    tcga:
+      meta: "${_root_}/processed/TCGA/SampleMeta.csv"
+      resp: "${_root_}/processed/TCGA/ClinicalResponse.csv"
+      exp: "${_root_}/processed/TCGA/GeneExpressionTPM.csv"
+
+  params:
+    cmp:
+      required_info_columns:
+        - ploidy_wes
+        - cancer_type
+      cancer_type_blacklist: null
+      min_cells_per_cancer_type: 20
+    tcga:
+      min_samples_per_drug: 10
+
+inputs:
+  dir: "${_root_}/inputs/${dataset.name}"
+  include:
+    - ScreenDL
+  screendl:
+    paths:
+      exp_gene_list: "${_root_}/processed/genelists/MiniCancerGenome1815Genes.pkl"
+    params:
+      exp_min_var_threshold: null
+      exp_log_transform: true
+      cnv_min_var_threshold: null
+      cnv_log_transform: true
+      ont_min_samples_per_ct: 5
+      mut_min_samples_per_gene: 10
+      ont_ct_blacklist:
+        - Other Solid Cancers
+        - Other Blood Cancers
+        - Other Sarcomas
+        - Non-Cancerous
+        - Unknown
+      mol_n_bits: 1024
+      mol_radius: 2

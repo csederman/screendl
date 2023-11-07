@@ -166,3 +166,4 @@ cython_debug/
 /pkg/
 screendl/_version.py
 scripts/utils/
+/scratch/

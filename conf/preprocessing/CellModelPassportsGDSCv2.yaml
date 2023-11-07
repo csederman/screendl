@@ -1,0 +1,67 @@
+_root_: "/scratch/ucgd/lustre-work/marth/u0871891/datastore"
+
+dataset:
+  dir: "${_root_}/datasets/${dataset.name}"
+  name: CellModelPassportsGDSCv2
+  save: True
+  paths:
+    drug_resp: "${_root_}/raw/GDSC/GDSC2_fitted_dose_response_24Jul22.xlsx"
+    drug_info: "${_root_}/raw/GDSC/drug_list_2023_06_23.csv"
+    cell_info: "${_root_}/raw/CellModelPassports/model_list_20230608.csv"
+    cell_exp: "${_root_}/raw/CellModelPassports/rnaseq_tpm_20220624.csv"
+    cell_cnv: "${_root_}/raw/CellModelPassports/WES_pureCN_CNV_genes_total_copy_number_20221213.csv"
+    cell_vcf: "${_root_}/raw/CellModelPassports/mutations_wes_vcf_20221010"
+  params:
+    required_info_columns:
+      - ploidy_wes
+      - cancer_type
+    cancer_type_blacklist: null
+    min_cells_per_cancer_type: 20
+
+splits:
+  dir: "${_root_}/inputs/${dataset.name}/splits"
+  types:
+    - mixed
+    - tumor_blind
+  params:
+    n_splits: 10
+    seed: 1771
+
+inputs:
+  dir: "${_root_}/inputs/${dataset.name}"
+  include:
+    - DeepCDR
+    - DualGCN
+    - HiDRA
+    - ScreenDL
+  deepcdr:
+    paths:
+      gene_list: "${_root_}/processed/genelists/CancerGeneCensus736Genes.pkl"
+  dualgcn:
+    paths:
+      ppi: "/scratch/ucgd/lustre-work/marth/u0871891/projects/screendl/pkg/DualGCN/data/PPI/PPI_network.txt"
+  hidra:
+    paths:
+      gmt: "/scratch/ucgd/lustre-work/marth/u0871891/projects/screendl/pkg/HiDRA/Training/geneset.gmt"
+    params:
+      use_gene_symbol_map: true
+  screendl:
+    paths:
+      exp_gene_list: "${_root_}/processed/genelists/MiniCancerGenome1815Genes.pkl"
+      cnv_gene_list: "${_root_}/processed/genelists/MiniCancerGenome1815Genes.pkl"
+      mut_gene_list: "${_root_}/processed/genelists/MiniCancerGenome1815Genes.pkl"
+    params:
+      exp_min_var_threshold: null
+      exp_log_transform: true
+      cnv_min_var_threshold: null
+      cnv_log_transform: true
+      mut_min_samples_per_gene: 10
+      ont_min_samples_per_ct: 5
+      ont_ct_blacklist:
+        - Other Solid Cancers
+        - Other Blood Cancers
+        - Other Sarcomas
+        - Non-Cancerous
+        - Unknown
+      mol_n_bits: 1024
+      mol_radius: 2

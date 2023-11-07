@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-""""""
+"""Runs basic pipelines for standard datasets with train/val/test splits."""
 
 from __future__ import annotations
 
@@ -34,7 +34,9 @@ PIPELINES = {
 }
 
 
-@hydra.main(version_base=None, config_path="../../conf", config_name="config")
+@hydra.main(
+    version_base=None, config_path="../../conf/runners", config_name="config"
+)
 def run(cfg: DictConfig) -> None:
     """"""
     # What I should do here is just use importlib
@@ -42,8 +44,8 @@ def run(cfg: DictConfig) -> None:
         raise ValueError("Unsupported model.")
 
     module_file = PIPELINES[cfg.model.name]
-    module_path = f"pipelines.{module_file}"
-    module = importlib.import_module(module_path)
+    module_name = f"screendl.pipelines.basic.{module_file}"
+    module = importlib.import_module(module_name)
 
     module.run_pipeline(cfg)
 

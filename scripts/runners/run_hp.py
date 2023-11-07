@@ -30,7 +30,9 @@ PIPELINES = {"ScreenDL": "screendl"}
 
 
 @hydra.main(
-    version_base=None, config_path="../../conf", config_name="hp_config"
+    version_base=None,
+    config_path="../../conf/runners",
+    config_name="hp_config",
 )
 def run_hp(cfg: DictConfig) -> float:
     """"""
@@ -39,8 +41,8 @@ def run_hp(cfg: DictConfig) -> float:
         raise ValueError("Unsupported model.")
 
     module_file = PIPELINES[cfg.model.name]
-    module_path = f"pipelines.{module_file}"
-    module = importlib.import_module(module_path)
+    module_name = f"pipelines.basic.{module_file}"
+    module = importlib.import_module(module_name, package="screendl")
 
     return module.run_hp_pipeline(cfg)
 

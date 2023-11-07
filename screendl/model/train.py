@@ -79,16 +79,7 @@ def train_model(
         )
 
     train_gen = BatchedResponseGenerator(train_ds, batch_size)
-    val_gen = BatchedResponseGenerator(val_ds, batch_size)
-
-    # FIXME: should just pass in the generator objects since I don't need
-    #   the datasets
-
-    # FIXME: add optional param for use of sample_weights
-    # FIXME: add parameter for weight alpha as tunable hparam
-    # FIXME: move make_dense_weights to core.utils.sample_weights
-
-    train_sequence = train_gen.flow(
+    train_seq = train_gen.flow(
         train_ds.cell_ids,
         train_ds.drug_ids,
         targets=train_ds.labels,
@@ -96,12 +87,15 @@ def train_model(
         seed=4114,
     )
 
-    val_sequence = val_gen.flow(
-        val_ds.cell_ids,
-        val_ds.drug_ids,
-        targets=val_ds.labels,
-        shuffle=False,
-    )
+    val_seq = None
+    if val_ds is not None:
+        val_gen = BatchedResponseGenerator(val_ds, batch_size)
+        val_seq = val_gen.flow(
+            val_ds.cell_ids,
+            val_ds.drug_ids,
+            targets=val_ds.labels,
+            shuffle=False,
+        )
 
     model.compile(
         optimizer=opt,
@@ -110,9 +104,9 @@ def train_model(
     )
 
     hx = model.fit(
-        train_sequence,
+        train_seq,
         epochs=epochs,
-        validation_data=val_sequence,
+        validation_data=val_seq,
         callbacks=callbacks,
     )
 
