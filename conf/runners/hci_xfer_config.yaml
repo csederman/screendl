@@ -1,0 +1,35 @@
+defaults:
+  - dataset: CellModelPassportsGDSCv2HCIExpressionOnly
+  - model: ScreenDL
+  - _self_
+
+hydra:
+  run:
+    dir: /scratch/ucgd/lustre-work/marth/u0871891/datastore/outputs/experiments/hci_xfer/${dataset.name}/${model.name}/runs/${now:%Y-%m-%d}_${now:%H-%M-%S}
+  job:
+    chdir: true
+  sweep:
+    dir: /scratch/ucgd/lustre-work/marth/u0871891/datastore/outputs/experiments/hci_xfer/${dataset.name}/${model.name}/multiruns/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    subdir: fold_${dataset.split.id}
+  sweeper:
+    params:
+      dataset.split.id: 1,2,3,4,5,6,7,8,9,10
+
+xfer:
+  hyper:
+    learning_rate: 0.01
+    batch_size: null
+    epochs: 5
+
+screenahead:
+  opt:
+    seed: 1771
+    n_drugs: 5
+    selector: principal
+  hyper:
+    learning_rate: 0.0001
+    batch_size: null
+    epochs: 20
+
+output:
+  log: logs

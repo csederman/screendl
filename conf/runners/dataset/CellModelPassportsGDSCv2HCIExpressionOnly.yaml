@@ -1,0 +1,22 @@
+name: CellModelPassportsGDSCv2HCIExpressionOnly
+
+dir: "/scratch/ucgd/lustre-work/marth/u0871891/datastore/inputs/CellModelPassportsGDSCv2HCIExpressionOnly"
+
+split:
+  dir: "${dataset.dir}/splits"
+  name: ""
+  id: 1
+
+sources:
+  labels: "${dataset.dir}/LabelsLogIC50.csv"
+
+  screendl:
+    exp: "${dataset.dir}/ScreenDL/FeatureGeneExpression.csv"
+    ont: "${dataset.dir}/ScreenDL/FeatureCancerTypeOntology.csv"
+    mol: "${dataset.dir}/ScreenDL/FeatureMorganFingerprints.csv"
+
+preprocess:
+  norm: "grouped"
+
+output:
+  save: false

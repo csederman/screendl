@@ -5,10 +5,15 @@ Data loading utilities for ScreenDL.
 from __future__ import annotations
 
 import pandas as pd
+import typing as t
 
 from pathlib import Path
 
 from cdrpy.feat.encoders import PandasEncoder
+
+
+if t.TYPE_CHECKING:
+    from cdrpy.data.datasets import EncoderDict
 
 
 def load_cell_features(
@@ -16,35 +21,41 @@ def load_cell_features(
     mut_path: str | Path | None = None,
     cnv_path: str | Path | None = None,
     ont_path: str | Path | None = None,
-) -> tuple[
-    PandasEncoder,
-    PandasEncoder | None,
-    PandasEncoder | None,
-    PandasEncoder | None,
-]:
-    """Load cell features for ScreenDL."""
-    exp_mat = pd.read_csv(exp_path, index_col=0).astype("float32")
-    exp_enc = PandasEncoder(exp_mat, name="cell_encoder")
+) -> EncoderDict:
+    """Loads cell features for ScreenDL."""
+    enc_dict = {}
 
-    mut_enc = None
+    exp_mat = pd.read_csv(exp_path, index_col=0).astype("float32")
+    enc_dict["exp"] = PandasEncoder(exp_mat, name="cell_encoder")
+
     if mut_path is not None:
         mut_mat = pd.read_csv(mut_path, index_col=0).astype("int32")
-        mut_enc = PandasEncoder(mut_mat, name="mut_encoder")
+        enc_dict["mut"] = PandasEncoder(mut_mat, name="mut_encoder")
 
-    cnv_enc = None
     if cnv_path is not None:
         cnv_mat = pd.read_csv(cnv_path, index_col=0).astype("float32")
-        cnv_enc = PandasEncoder(cnv_mat, name="cnv_encoder")
+        enc_dict["cnv"] = PandasEncoder(cnv_mat, name="cnv_encoder")
 
-    ont_enc = None
     if ont_path is not None:
         ont_mat = pd.read_csv(ont_path, index_col=0).astype("float32")
-        ont_enc = PandasEncoder(ont_mat, name="ont_encoder")
+        enc_dict["ont"] = PandasEncoder(ont_mat, name="ont_encoder")
 
-    return exp_enc, mut_enc, cnv_enc, ont_enc
+    return enc_dict
 
 
-def load_drug_features(mol_path: str | Path) -> PandasEncoder:
-    """Load drug features for ScreenDL."""
+def load_drug_features(mol_path: str | Path) -> EncoderDict:
+    """Loads drug features for ScreenDL."""
+    enc_dict = {}
     mol_mat = pd.read_csv(mol_path, index_col=0).astype("int32")
-    return PandasEncoder(mol_mat, name="drug_encoder")
+    enc_dict["mol"] = PandasEncoder(mol_mat, name="drug_encoder")
+    return enc_dict
+
+
+def load_cell_metadata(file_path: str | Path) -> pd.DataFrame:
+    """Loads the cell line metadata annotations."""
+    return pd.read_csv(file_path, index_col=0)
+
+
+def load_drug_metadata(file_path: str | Path) -> pd.DataFrame:
+    """Loads the drug metadata annotations."""
+    return pd.read_csv(file_path, index_col=0)
