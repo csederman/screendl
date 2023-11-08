@@ -5,11 +5,11 @@ defaults:
 
 hydra:
   run:
-    dir: /scratch/ucgd/lustre-work/marth/u0871891/datastore/outputs/experiments/hci_xfer/${dataset.name}/${model.name}/runs/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    dir: /scratch/ucgd/lustre-work/marth/u0871891/datastore/outputs/experiments/pdmc_xfer/${dataset.name}/${model.name}/runs/${now:%Y-%m-%d}_${now:%H-%M-%S}
   job:
     chdir: true
   sweep:
-    dir: /scratch/ucgd/lustre-work/marth/u0871891/datastore/outputs/experiments/hci_xfer/${dataset.name}/${model.name}/multiruns/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    dir: /scratch/ucgd/lustre-work/marth/u0871891/datastore/outputs/experiments/pdmc_xfer/${dataset.name}/${model.name}/multiruns/${now:%Y-%m-%d}_${now:%H-%M-%S}
     subdir: fold_${dataset.split.id}
   sweeper:
     params:

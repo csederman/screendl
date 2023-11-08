@@ -26,6 +26,12 @@ dataset:
     tcga:
       min_samples_per_drug: 10
 
+splits:
+  dir: "${_root_}/inputs/${dataset.name}/splits"
+  params:
+    n_splits: 10
+    seed: 1771
+
 inputs:
   dir: "${_root_}/inputs/${dataset.name}"
   include:
