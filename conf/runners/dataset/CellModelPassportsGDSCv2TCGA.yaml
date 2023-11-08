@@ -1,0 +1,38 @@
+name: CellModelPassportsGDSCv2TCGA
+
+dir: "/scratch/ucgd/lustre-work/marth/u0871891/datastore/inputs/CellModelPassportsGDSCv2TCGA"
+
+split:
+  dir: "${dataset.dir}/splits"
+  name: ""
+  id: 1
+
+sources:
+
+  cell:
+    labels: "${dataset.dir}/cell/LabelsLogIC50.csv"
+
+    drug_meta: "${dataset.dir}/cell/MetaDrugAnnotations.csv"
+    sample_meta: "${dataset.dir}/cell/MetaSampleAnnotations.csv"
+
+    screendl:
+      exp: "${dataset.dir}/cell/ScreenDL/FeatureGeneExpression.csv"
+      ont: "${dataset.dir}/cell/ScreenDL/FeatureCancerTypeOntology.csv"
+      mol: "${dataset.dir}/cell/ScreenDL/FeatureMorganFingerprints.csv"
+  
+  patient:
+    labels: "${dataset.dir}/patient/LabelsBinaryResponse.csv"
+
+    drug_meta: "${dataset.dir}/patient/MetaDrugAnnotations.csv"
+    sample_meta: "${dataset.dir}/patient/MetaSampleAnnotations.csv"
+
+    screendl:
+      exp: "${dataset.dir}/patient/ScreenDL/FeatureGeneExpression.csv"
+      ont: "${dataset.dir}/patient/ScreenDL/FeatureCancerTypeOntology.csv"
+      mol: "${dataset.dir}/patient/ScreenDL/FeatureMorganFingerprints.csv"
+
+preprocess:
+  norm: "grouped"
+
+output:
+  save: false
