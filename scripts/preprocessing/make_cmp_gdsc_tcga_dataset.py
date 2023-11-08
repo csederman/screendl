@@ -141,9 +141,7 @@ def make_dataset(
 
     pubchem_annots = fetch_pubchem_properties(pubchem_cids)
     pubchem_annots["CID"] = pubchem_annots["CID"].astype(str)
-    pubchem_annots = pubchem_annots.rename(
-        columns={"CanonicalSMILES": "smiles"}
-    )
+    pubchem_annots = pubchem_annots.rename(columns={"CanonicalSMILES": "smiles"})
 
     # merge in the PubCHEM annotations
     gdsc_drug_meta = gdsc_drug_meta.merge(
@@ -160,25 +158,17 @@ def make_dataset(
         cell_out_dir.mkdir(exist_ok=True, parents=True)
 
         cmp_cell_exp.to_csv(cell_out_dir / "OmicsGeneExpressionTPM.csv")
-        cmp_cell_meta.to_csv(
-            cell_out_dir / "SampleAnnotations.csv", index=False
-        )
+        cmp_cell_meta.to_csv(cell_out_dir / "SampleAnnotations.csv", index=False)
 
-        gdsc_drug_resp.to_csv(
-            cell_out_dir / "ScreenDoseResponse.csv", index=False
-        )
-        gdsc_drug_meta.to_csv(
-            cell_out_dir / "DrugAnnotations.csv", index=False
-        )
+        gdsc_drug_resp.to_csv(cell_out_dir / "ScreenDoseResponse.csv", index=False)
+        gdsc_drug_meta.to_csv(cell_out_dir / "DrugAnnotations.csv", index=False)
 
         pt_out_dir = Path(cfg.dataset.dir) / "patient"
         pt_out_dir.mkdir(exist_ok=True, parents=True)
 
         tcga_pt_exp.to_csv(pt_out_dir / "OmicsGeneExpressionTPM.csv")
         tcga_pt_meta.to_csv(pt_out_dir / "SampleAnnotations.csv", index=False)
-        tcga_drug_resp.to_csv(
-            pt_out_dir / "ScreenDoseResponse.csv", index=False
-        )
+        tcga_drug_resp.to_csv(pt_out_dir / "ScreenDoseResponse.csv", index=False)
         tcga_drug_meta.to_csv(pt_out_dir / "DrugAnnotations.csv", index=False)
 
     return (
@@ -229,9 +219,44 @@ def make_labels(
     pt_out_dir = Path(cfg.inputs.dir) / "patient"
     pt_out_dir.mkdir(exist_ok=True, parents=True)
 
-    pt_resp_df.to_csv(pt_out_dir / "LabelsLogIC50.csv", index=False)
+    pt_resp_df.to_csv(pt_out_dir / "LabelsBinaryResponse.csv", index=False)
 
     return cell_resp_df, pt_resp_df
+
+
+def make_splits(
+    cfg: DictConfig,
+    cell_resp_df: pd.DataFrame,
+    cell_sample_meta: pd.DataFrame,
+) -> None:
+    """Creates train/val/test splits."""
+    params = cfg.splits.params
+
+    out_dir = Path(cfg.splits.dir)
+    out_dir.mkdir(exist_ok=True, parents=True)
+
+    cell_sample_ids = cell_sample_meta["model_id"]
+    cell_sample_groups = cell_sample_meta["cancer_type"]
+
+    split_gen = kfold_split_generator(
+        cell_sample_ids,
+        cell_sample_groups,
+        n_splits=params.n_splits,
+        random_state=params.seed,
+        include_validation_set=False,
+    )
+
+    for i, split in enumerate(split_gen, 1):
+        train_cells = split["train"]
+        val_cells = split["test"]
+
+        train_ids = cell_resp_df[cell_resp_df["cell_id"].isin(train_cells)]["id"]
+        val_ids = cell_resp_df[cell_resp_df["cell_id"].isin(val_cells)]["id"]
+
+        split_dict = {"train": list(train_ids), "val": list(val_ids)}
+
+        with open(out_dir / f"fold_{i}.pkl", "wb") as fh:
+            pickle.dump(split_dict, fh)
 
 
 def make_meta(
@@ -328,7 +353,12 @@ def cli(config_path: str) -> None:
     ) = make_dataset(cfg)
 
     log.info("Generating labels...")
-    resp_df = make_labels(cfg, cell_resp_df=cell_resp, pt_resp_df=pt_resp)
+    cell_resp_df, pt_resp_df = make_labels(
+        cfg, cell_resp_df=cell_resp, pt_resp_df=pt_resp
+    )
+
+    log.info("Generating folds...")
+    make_splits(cfg, cell_resp_df=cell_resp_df, cell_sample_meta=cell_sample_meta)
 
     log.info("Generating meta data...")
     make_meta(
