@@ -3,6 +3,12 @@
 
 from __future__ import annotations
 
+import os
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+os.environ["HYDRA_FULL_ERROR"] = "1"
+
+import hydra
 import logging
 
 import numpy as np
@@ -13,7 +19,6 @@ from omegaconf import DictConfig
 from sklearn.preprocessing import StandardScaler
 from tensorflow import keras
 from tqdm import tqdm
-from scipy import stats
 
 from cdrpy.data.datasets import Dataset
 from cdrpy.data.preprocess import normalize_responses
@@ -100,9 +105,7 @@ def data_preprocessor(
     return cell_train_ds, cell_val_ds, pdmc_ds
 
 
-def xfer_model_builder(
-    cfg: DictConfig, base_model: keras.Model
-) -> keras.Model:
+def xfer_model_builder(cfg: DictConfig, base_model: keras.Model) -> keras.Model:
     """Builds the transfer learning model."""
     hparams = cfg.xfer.hyper
 
@@ -126,9 +129,7 @@ def xfer_model_trainer(
 ) -> tuple[keras.Model, WeightsDict, pd.DataFrame]:
     """Runs transfer learning loop for each PDMC."""
     hparams = cfg.xfer.hyper
-    batch_size = (
-        pdmc_ds.size if hparams.batch_size is None else hparams.batch_size
-    )
+    batch_size = pdmc_ds.size if hparams.batch_size is None else hparams.batch_size
 
     base_weights = xfer_model.get_weights()
     pdmc_gen = BatchedResponseGenerator(pdmc_ds, batch_size=batch_size)
@@ -146,9 +147,7 @@ def xfer_model_trainer(
         this_seq = pdmc_gen.flow_from_dataset(this_ds)
 
         other_ds = pdmc_ds.select_cells(other_pdmc_ids, name="other")
-        other_seq = pdmc_gen.flow_from_dataset(
-            other_ds, shuffle=True, seed=1441
-        )
+        other_seq = pdmc_gen.flow_from_dataset(other_ds, shuffle=True, seed=1441)
 
         base_preds: np.ndarray = xfer_model.predict(this_seq, verbose=0)
         pred_dfs.append(make_pred_df(this_ds, base_preds, model="base"))
@@ -165,9 +164,7 @@ def xfer_model_trainer(
     return xfer_model, xfer_weights, pred_df
 
 
-def screenahead_model_builder(
-    cfg: DictConfig, model: keras.Model
-) -> keras.Model:
+def screenahead_model_builder(cfg: DictConfig, model: keras.Model) -> keras.Model:
     """Configures the model for ScreenAhead."""
     hparams = cfg.screenahead.hyper
 
@@ -191,9 +188,7 @@ def screenahead_model_trainer(
     opts = cfg.screenahead.opt
     hparams = cfg.screenahead.hyper
 
-    batch_size = (
-        pdmc_ds.size if hparams.batch_size is None else hparams.batch_size
-    )
+    batch_size = pdmc_ds.size if hparams.batch_size is None else hparams.batch_size
 
     selector_cls: DrugSelectorBase = SELECTORS[opts.selector]
     selector = selector_cls(cell_ds, seed=opts.seed)
@@ -225,9 +220,7 @@ def screenahead_model_trainer(
         sa_weights[this_pdmc_id] = sa_model.get_weights()
 
         sa_preds: np.ndarray = sa_model.predict(this_holdout_seq, verbose=0)
-        sa_pred_dfs.append(
-            make_pred_df(this_holdout_ds, sa_preds, model="screen")
-        )
+        sa_pred_dfs.append(make_pred_df(this_holdout_ds, sa_preds, model="screen"))
 
     sa_model.set_weights(base_weights)
     sa_pred_df = pd.concat(sa_pred_dfs)
@@ -235,8 +228,13 @@ def screenahead_model_trainer(
     return sa_model, sa_weights, sa_pred_df
 
 
+@hydra.main(
+    version_base=None,
+    config_path="../../conf/runners",
+    config_name="xfer_pdmc_config",
+)
 def run_experiment(cfg: DictConfig) -> None:
-    """Runs the ScreenDL training pipeline."""
+    """Runs the HCI PDMC training and evaluation pipeline."""
     dataset_name = cfg.dataset.name
     model_name = cfg.model.name
 
@@ -244,44 +242,50 @@ def run_experiment(cfg: DictConfig) -> None:
     dataset = data_loader(cfg)
 
     log.info(f"Splitting {dataset_name}...")
-    cell_train_ds, cell_val_ds, pdmc_ds = data_splitter(cfg, dataset)
+    cell_train_ds, cell_val_ds, pdmc_ds = data_splitter(cfg, dataset=dataset)
 
     log.info(f"Preprocessing {dataset_name}...")
     cell_train_ds, cell_val_ds, pdmc_ds = data_preprocessor(
-        cfg, cell_train_ds, cell_val_ds, pdmc_ds
+        cfg,
+        cell_train_ds=cell_train_ds,
+        cell_val_ds=cell_val_ds,
+        pdmc_ds=pdmc_ds,
     )
 
     log.info(f"Building {model_name}...")
-    base_model = base_model_builder(cfg, cell_train_ds)
+    base_model = base_model_builder(cfg, train_dataset=cell_train_ds)
 
     log.info(f"Pretraining {model_name}...")
     base_model = base_model_trainer(
-        cfg, base_model, cell_train_ds, cell_val_ds
+        cfg,
+        model=base_model,
+        train_dataset=cell_train_ds,
+        val_dataset=cell_val_ds,
     )
 
     log.info(f"Configuring {model_name} for transfer learning...")
-    xfer_model = xfer_model_builder(cfg, base_model)
+    xfer_model = xfer_model_builder(cfg, base_model=base_model)
 
     log.info(f"Running transfer learning loop...")
     xfer_model, xfer_weights, xfer_pred_df = xfer_model_trainer(
-        cfg, xfer_model, pdmc_ds
+        cfg, xfer_model=xfer_model, pdmc_ds=pdmc_ds
     )
 
     log.info(f"Configuring {model_name} for ScreenAhead...")
-    sa_model = screenahead_model_builder(cfg, xfer_model)
+    sa_model = screenahead_model_builder(cfg, model=xfer_model)
 
     log.info(f"Running screenahead loop...")
-    sa_model, sa_weights, sa_pred_df = screenahead_model_trainer(
-        cfg, sa_model, cell_train_ds, pdmc_ds, xfer_weights
+    sa_model, _, sa_pred_df = screenahead_model_trainer(
+        cfg,
+        sa_model=sa_model,
+        cell_ds=cell_train_ds,
+        pdmc_ds=pdmc_ds,
+        xfer_weights=xfer_weights,
     )
 
-    def pcorr(
-        df: pd.DataFrame, c1: str = "y_true", c2: str = "y_pred"
-    ) -> float:
-        if df.shape[0] < 5:
-            return np.nan
-        return stats.pearsonr(df[c1], df[c2])[0]
-
     pred_df = pd.concat([xfer_pred_df, sa_pred_df])
-    corrs = pred_df.groupby(["drug_id", "model"]).apply(pcorr).unstack()
-    print(corrs.describe()[["base", "xfer", "screen"]])
+    pred_df.to_csv("predictions.csv", index=False)
+
+
+if __name__ == "__main__":
+    run_experiment()
