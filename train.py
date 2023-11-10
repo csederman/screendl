@@ -179,7 +179,7 @@ def run(g_parameters: t.Dict[str, t.Any]) -> keras.callbacks.History:
         "rmse": val_rmse,
     }
 
-    with open(output_dir + "/scores.json", "w", encoding="utf-8") as f:
+    with open(output_dir / "scores.json", "w", encoding="utf-8") as f:
         json.dump(val_scores, f, ensure_ascii=False, indent=4)
 
     return hx
