@@ -108,7 +108,7 @@ def run(g_parameters: t.Dict[str, t.Any]) -> keras.callbacks.History:
 
     # 3. create the model
     exp_dim = ds.cell_encoders["exp"].shape[-1]
-    mol_dim = ds.cell_encoders["mol"].shape[-1]
+    mol_dim = ds.drug_encoders["mol"].shape[-1]
 
     model = screendl.create_model(
         exp_dim=exp_dim,
