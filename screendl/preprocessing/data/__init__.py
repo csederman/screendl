@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pandas as pd
+import typing as t
 
 from .cmp import load_cmp_data, harmonize_cmp_data
 from .gdsc import load_gdsc_data, harmonize_gdsc_data
@@ -34,7 +35,7 @@ def harmonize_cmp_gdsc_data(
     drug_meta: pd.DataFrame,
     cnv_df: pd.DataFrame | None = None,
     mut_df: pd.DataFrame | None = None,
-) -> tuple[
+) -> t.Tuple[
     pd.DataFrame,
     pd.DataFrame,
     pd.DataFrame,
@@ -101,7 +102,7 @@ def harmonize_cmp_gdsc_hci_data(
     cmp_mut: pd.DataFrame | None = None,
     hci_mut: pd.DataFrame | None = None,
     include_all_hci_drugs: bool = False,
-) -> tuple[
+) -> t.Tuple[
     pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame | None
 ]:
     """Harmonizes the Cell Model Passports, GDSC and HCI data."""
@@ -143,9 +144,7 @@ def harmonize_cmp_gdsc_hci_data(
         hci_drug_meta = hci_drug_meta[
             hci_drug_meta.pubchem_id.isin(gdsc_drug_meta["pubchem_id"])
         ]
-        hci_resp = hci_resp[
-            hci_resp["drug_name"].isin(gdsc_drug_meta["drug_name"])
-        ]
+        hci_resp = hci_resp[hci_resp["drug_name"].isin(gdsc_drug_meta["drug_name"])]
 
     cols = ["model_id", "drug_name", "ln_ic50"]
     resp_df = pd.concat([gdsc_resp[cols], hci_resp[cols]])
@@ -165,7 +164,7 @@ def harmonize_cmp_gdsc_tcga_data(
     cmp_sample_meta: pd.DataFrame,
     tcga_sample_meta: pd.DataFrame,
     gdsc_drug_meta: pd.DataFrame,
-) -> tuple[
+) -> t.Tuple[
     pd.DataFrame,
     pd.DataFrame,
     pd.DataFrame,

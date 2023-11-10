@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import pandas as pd
+import typing as t
 
 from pathlib import Path
 
 
 def load_gdsc_data(
     resp_path: str | Path, meta_path: str | Path
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> t.Tuple[pd.DataFrame, pd.DataFrame]:
     """Loads the raw GDSCv2 data.
 
     Parameters
@@ -30,7 +31,7 @@ def load_gdsc_data(
 def harmonize_gdsc_data(
     resp_df: pd.DataFrame,
     meta_df: pd.DataFrame,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> t.Tuple[pd.DataFrame, pd.DataFrame]:
     """Harmonizes the GDSCv2 data.
 
     Parameters

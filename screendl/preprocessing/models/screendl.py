@@ -235,7 +235,7 @@ def generate_screendl_inputs(
     ont_ct_blacklist: t.Iterable[str] | None = None,
     mol_n_bits: int = 1024,
     mol_radius: int = 2,
-) -> tuple[
+) -> t.Tuple[
     pd.DataFrame,
     pd.DataFrame | None,
     pd.DataFrame | None,
@@ -303,9 +303,7 @@ def generate_screendl_inputs(
         ct_blacklist=ont_ct_blacklist,
     )
 
-    mol_feat = _generate_mol_features(
-        drug_meta, n_bits=mol_n_bits, radius=mol_radius
-    )
+    mol_feat = _generate_mol_features(drug_meta, n_bits=mol_n_bits, radius=mol_radius)
 
     return exp_feat, cnv_feat, mut_feat, ont_feat, mol_feat
 
@@ -329,7 +327,7 @@ class _ParamConfig:
     cnv_log_transform: bool = True
     mut_min_samples_per_gene: int = 10
     ont_min_samples_per_ct: int = 5
-    ont_ct_blacklist: list[str] | None = None
+    ont_ct_blacklist: t.List[str] | None = None
     mol_n_bits: int = 1024
     mol_radius: int = 2
 

@@ -6,6 +6,7 @@ import requests
 import time
 
 import pandas as pd
+import typing as t
 
 from tqdm import tqdm
 
@@ -22,7 +23,7 @@ PUBCHEM_DEFAULT_PROPERTIES = [
 
 
 def fetch_pubchem_properties(
-    pubchem_cids: list[str], properties: list[str] | None = None
+    pubchem_cids: t.List[str], properties: t.List[str] | None = None
 ) -> pd.DataFrame:
     """Queries PubCHEM properties for the specified PubCHEM compound ids."""
 

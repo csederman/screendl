@@ -67,7 +67,7 @@ def data_loader(cfg: DictConfig) -> Dataset:
 
 def data_splitter(
     cfg: DictConfig, dataset: Dataset
-) -> tuple[Dataset, Dataset, Dataset]:
+) -> t.Tuple[Dataset, Dataset, Dataset]:
     """Splits the dataset into train/validation/test sets.
 
     Parameters
@@ -98,7 +98,7 @@ def data_preprocessor(
     train_dataset: Dataset,
     val_dataset: Dataset | None = None,
     test_dataset: Dataset | None = None,
-) -> tuple[Dataset, Dataset, Dataset]:
+) -> t.Tuple[Dataset, Dataset, Dataset]:
     """Preprocessing pipeline.
 
     Parameters
@@ -345,7 +345,7 @@ def run_hp_pipeline(cfg: DictConfig) -> float:
 
 def run_sa_pipeline(
     cfg: DictConfig,
-) -> tuple[keras.Model, Dataset, Dataset, Dataset]:
+) -> t.Tuple[keras.Model, Dataset, Dataset, Dataset]:
     """Runs the ScreenDL pipeline with ScreenAhead."""
     dataset_name = cfg.dataset.name
     model_name = cfg.model.name

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import pandas as pd
+import typing as t
 
 from pathlib import Path
 
@@ -12,7 +13,7 @@ def load_tcga_data(
     exp_path: str | Path,
     resp_path: str | Path,
     meta_path: str | Path,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+) -> t.Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Loads the raw TCGA data."""
     exp_df = pd.read_csv(exp_path, index_col=0)
     resp_df = pd.read_csv(resp_path)
@@ -26,7 +27,7 @@ def harmonize_tcga_data(
     resp_df: pd.DataFrame,
     meta_df: pd.DataFrame,
     min_samples_per_drug: int | None = None,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+) -> t.Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Harmonizes the raw TCGA data."""
     common_samples = exp_df.index.intersection(resp_df["sample_id"])
     common_samples = common_samples.intersection(meta_df["sample_id"])

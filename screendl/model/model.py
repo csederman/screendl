@@ -67,7 +67,7 @@ class MLPBlock(layers.Layer):
 
         return x
 
-    def get_config(self) -> dict[str, t.Any]:
+    def get_config(self) -> t.Dict[str, t.Any]:
         """Returns config for serialization."""
         return {
             "units": self.units,
@@ -80,7 +80,7 @@ class MLPBlock(layers.Layer):
 def _create_expression_subnetwork(
     dim: int,
     norm_layer: layers.Normalization | None = None,
-    hidden_dims: list[int] | None = None,
+    hidden_dims: t.List[int] | None = None,
     use_batch_norm: bool = False,
     use_dropout: bool = False,
     dropout_rate: float = 0.1,
@@ -117,7 +117,7 @@ def _create_expression_subnetwork(
 
 def _create_mutation_subnetwork(
     dim: int,
-    hidden_dims: list[int] | None = None,
+    hidden_dims: t.List[int] | None = None,
     use_batch_norm: bool = False,
     use_dropout: bool = False,
     dropout_rate: float = 0.1,
@@ -145,7 +145,7 @@ def _create_mutation_subnetwork(
 
 def _create_ontology_subnetwork(
     dim: int,
-    hidden_dims: list[int] | None = None,
+    hidden_dims: t.List[int] | None = None,
     use_batch_norm: bool = False,
     use_dropout: bool = False,
     dropout_rate: float = 0.1,
@@ -174,7 +174,7 @@ def _create_ontology_subnetwork(
 def _create_copy_number_subnetwork(
     dim: int,
     norm_layer: layers.Normalization | None = None,
-    hidden_dims: list[int] | None = None,
+    hidden_dims: t.List[int] | None = None,
     use_batch_norm: bool = False,
     use_dropout: bool = False,
     dropout_rate: float = 0.1,
@@ -216,10 +216,10 @@ def _create_cell_subnetwork(
     ont_dim: int | None = None,
     exp_norm_layer: layers.Normalization | None = None,
     cnv_norm_layer: layers.Normalization | None = None,
-    exp_hidden_dims: list[int] | None = None,
-    mut_hidden_dims: list[int] | None = None,
-    cnv_hidden_dims: list[int] | None = None,
-    ont_hidden_dims: list[int] | None = None,
+    exp_hidden_dims: t.List[int] | None = None,
+    mut_hidden_dims: t.List[int] | None = None,
+    cnv_hidden_dims: t.List[int] | None = None,
+    ont_hidden_dims: t.List[int] | None = None,
     use_batch_norm: bool = False,
     use_dropout: bool = False,
     dropout_rate: float = 0.1,
@@ -270,9 +270,7 @@ def _create_cell_subnetwork(
             activation=activation,
         )
         subnet_inputs.append(mut_subnet.input)
-        subnet_output = layers.Concatenate()(
-            [subnet_output, mut_subnet.output]
-        )
+        subnet_output = layers.Concatenate()([subnet_output, mut_subnet.output])
 
     if cnv_dim is not None:
         cnv_subnet = _create_copy_number_subnetwork(
@@ -285,9 +283,7 @@ def _create_cell_subnetwork(
             activation=activation,
         )
         subnet_inputs.append(cnv_subnet.input)
-        subnet_output = layers.Concatenate()(
-            [subnet_output, cnv_subnet.output]
-        )
+        subnet_output = layers.Concatenate()([subnet_output, cnv_subnet.output])
 
     if ont_dim is not None:
         ont_subnet = _create_ontology_subnetwork(
@@ -299,18 +295,14 @@ def _create_cell_subnetwork(
             activation=activation,
         )
         subnet_inputs.append(ont_subnet.input)
-        subnet_output = layers.Concatenate()(
-            [subnet_output, ont_subnet.output]
-        )
+        subnet_output = layers.Concatenate()([subnet_output, ont_subnet.output])
 
-    return Model(
-        inputs=subnet_inputs, outputs=subnet_output, name="cell_subnet"
-    )
+    return Model(inputs=subnet_inputs, outputs=subnet_output, name="cell_subnet")
 
 
 def _create_drug_subnetwork(
     mol_dim: int,
-    mol_hidden_dims: list[int] | None = None,
+    mol_hidden_dims: t.List[int] | None = None,
     use_batch_norm: bool = False,
     use_dropout: bool = False,
     dropout_rate: float = 0.1,
@@ -357,12 +349,12 @@ def create_model(
     ont_dim: int | None = None,
     exp_norm_layer: layers.Normalization | None = None,
     cnv_norm_layer: layers.Normalization | None = None,
-    exp_hidden_dims: list[int] | None = None,
-    mut_hidden_dims: list[int] | None = None,
-    cnv_hidden_dims: list[int] | None = None,
-    ont_hidden_dims: list[int] | None = None,
-    mol_hidden_dims: list[int] | None = None,
-    shared_hidden_dims: list[int] | None = None,
+    exp_hidden_dims: t.List[int] | None = None,
+    mut_hidden_dims: t.List[int] | None = None,
+    cnv_hidden_dims: t.List[int] | None = None,
+    ont_hidden_dims: t.List[int] | None = None,
+    mol_hidden_dims: t.List[int] | None = None,
+    shared_hidden_dims: t.List[int] | None = None,
     use_batch_norm: bool = False,
     use_dropout: bool = False,
     dropout_rate: float = 0.1,
@@ -403,9 +395,7 @@ def create_model(
         subnet_inputs = [cell_subnet.input, drug_subnet.input]
     subnet_outputs = [cell_subnet.output, drug_subnet.output]
 
-    latent_dim = sum(
-        (cell_subnet.output_shape[1], drug_subnet.output_shape[1])
-    )
+    latent_dim = sum((cell_subnet.output_shape[1], drug_subnet.output_shape[1]))
 
     if shared_hidden_dims is None:
         shared_hidden_dims = [
