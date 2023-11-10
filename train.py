@@ -56,16 +56,16 @@ if K.backend() == "tensorflow" and "NUM_INTRA_THREADS" in os.environ:
 
 def initialize_parameters() -> t.Dict[str, t.Any]:
     """Initialize parameters for the run."""
-    screendl_common = ScreenDL(
+    screendl_bmk = ScreenDL(
         file_path,
         "screendl_default_model.txt",
         "keras",
-        prog="ScreenDL_candle",
-        desc="ScreenDL run",
+        prog="ScreenDL_baseline",
+        desc="ScreenDL Banchmark",
     )
 
     # Initialize parameters
-    g_parameters = candle.finalize_parameters(screendl_common)
+    g_parameters = candle.finalize_parameters(screendl_bmk)
 
     return g_parameters
 
@@ -106,7 +106,7 @@ def run(g_parameters: t.Dict[str, t.Any]) -> t.Dict[str, float]:
     exp_enc.data[:] = StandardScaler().fit_transform(exp_enc.data)
 
     # 3. create the model
-    exp_dim = ds.cell_encoders["exp"].shape[-1]
+    exp_dim = exp_enc.shape[-1]
     mol_dim = ds.drug_encoders["mol"].shape[-1]
 
     model = screendl.create_model(
@@ -176,7 +176,7 @@ def run(g_parameters: t.Dict[str, t.Any]) -> t.Dict[str, float]:
     }
 
     val_scores = {
-        "key": "val_loss",
+        "key": "val_loss",  # default key for value for HPO to grab from val_scores
         "value": metrics["val_loss"],
         "val_loss": metrics["val_loss"],
         "pcc": metrics["pcc"],
@@ -187,12 +187,14 @@ def run(g_parameters: t.Dict[str, t.Any]) -> t.Dict[str, float]:
     with open(output_dir / "scores.json", "w", encoding="utf-8") as f:
         json.dump(val_scores, f, ensure_ascii=False, indent=4)
 
+    print("IMPROVE_RESULT val_loss:\t" + str(val_scores.get("val_loss", 0.0)))
+
     return metrics
 
 
 def main() -> None:
     g_parameters = initialize_parameters()
-    metrics = run(g_parameters)
+    scores = run(g_parameters)
 
 
 if __name__ == "__main__":

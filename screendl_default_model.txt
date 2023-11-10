@@ -1,6 +1,6 @@
 [global]
 # the only absolutely required parameter
-model_name="screendl"
+model_name="ScreenDL"
 
 # demonstrating how a list is handled
 epochs=100
