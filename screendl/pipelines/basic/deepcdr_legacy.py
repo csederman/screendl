@@ -111,7 +111,7 @@ def data_loader(cfg: DictConfig) -> Dataset:
 
 def data_splitter(
     cfg: DictConfig, dataset: Dataset
-) -> tuple[Dataset, Dataset, Dataset]:
+) -> t.Tuple[Dataset, Dataset, Dataset]:
     """Splits the dataset into train/validation/test sets.
 
     Parameters
@@ -142,7 +142,7 @@ def data_preprocessor(
     train_dataset: Dataset,
     val_dataset: Dataset | None = None,
     test_dataset: Dataset | None = None,
-) -> tuple[Dataset, Dataset, Dataset]:
+) -> t.Tuple[Dataset, Dataset, Dataset]:
     """Preprocessing pipeline.
 
     Parameters
@@ -168,9 +168,7 @@ def data_preprocessor(
 
     if cfg.model.preprocess.use_quantile_norm:
         # apply quantile normalization
-        qt = QuantileTransformer(
-            output_distribution="normal", random_state=1771
-        )
+        qt = QuantileTransformer(output_distribution="normal", random_state=1771)
         _ = qt.fit(X)
         exp_encoder.data[:] = qt.transform(exp_encoder.data.values)
     else:
@@ -208,9 +206,7 @@ def model_builder(cfg: DictConfig, train_dataset: Dataset) -> keras.Model:
     exp_dim = train_dataset.cell_encoders["exp"].shape[-1]
     drug_dim = train_dataset.drug_encoders["feat"].shape[-1]
 
-    model = deepcdr.model(
-        use_mut=True, use_gexp=True, use_methy=False
-    ).createMaster(
+    model = deepcdr.model(use_mut=True, use_gexp=True, use_methy=False).createMaster(
         drug_dim=drug_dim,
         mutation_dim=mut_dim,
         gexpr_dim=exp_dim,
@@ -269,9 +265,7 @@ def model_trainer(
     train_seq = train_gen.flow_from_dataset(
         train_ds, drugs_first=True, shuffle=True, seed=4114
     )
-    val_seq = val_gen.flow_from_dataset(
-        val_ds, drugs_first=True, shuffle=False
-    )
+    val_seq = val_gen.flow_from_dataset(val_ds, drugs_first=True, shuffle=False)
 
     _ = model.fit(
         train_seq,

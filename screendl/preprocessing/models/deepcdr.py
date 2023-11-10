@@ -21,7 +21,7 @@ from deepchem.feat.graph_features import ConvMolFeaturizer
 log = logging.getLogger(__name__)
 
 
-ConvMolFeat = dict[str, tuple[np.ndarray, list[int], list[list[int]]]]
+ConvMolFeat = t.Dict[str, t.Tuple[np.ndarray, t.List[int], t.List[t.List[int]]]]
 
 
 def generate_deepcdr_inputs(
@@ -29,7 +29,7 @@ def generate_deepcdr_inputs(
     mut_df: pd.DataFrame,
     drug_info_df: pd.DataFrame,
     gene_list: t.Iterable[str],
-) -> tuple[pd.DataFrame, pd.DataFrame, ConvMolFeat]:
+) -> t.Tuple[pd.DataFrame, pd.DataFrame, ConvMolFeat]:
     """Prepares input features for DeepCDR."""
 
     # 1. extract gene expression features

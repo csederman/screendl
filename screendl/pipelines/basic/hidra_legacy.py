@@ -54,7 +54,7 @@ def import_hidra_namespace() -> SimpleNamespace:
 hidra = import_hidra_namespace()
 
 
-def data_loader(cfg: DictConfig) -> tuple[Dataset, dict[str, list[str]]]:
+def data_loader(cfg: DictConfig) -> t.Tuple[Dataset, t.Dict[str, t.List[str]]]:
     """Loads the input dataset.
 
     Parameters
@@ -96,7 +96,7 @@ def data_loader(cfg: DictConfig) -> tuple[Dataset, dict[str, list[str]]]:
 
 def data_splitter(
     cfg: DictConfig, dataset: Dataset
-) -> tuple[Dataset, Dataset, Dataset]:
+) -> t.Tuple[Dataset, Dataset, Dataset]:
     """Splits the dataset into train/validation/test sets.
 
     Parameters
@@ -124,11 +124,11 @@ def data_splitter(
 
 def data_preprocessor(
     cfg: DictConfig,
-    geneset_dict: dict[str, list[str]],
+    geneset_dict: t.Dict[str, t.List[str]],
     train_dataset: Dataset,
     val_dataset: Dataset | None = None,
     test_dataset: Dataset | None = None,
-) -> tuple[Dataset, Dataset, Dataset]:
+) -> t.Tuple[Dataset, Dataset, Dataset]:
     """Preprocessing pipeline.
 
     Parameters
@@ -164,9 +164,7 @@ def data_preprocessor(
             n_genes = enc.data.shape[-1]
             enc.data = enc.data.dropna(axis=1)
             n_dropped = n_genes - enc.data.shape[-1]
-            log.warning(
-                f"Dropped {n_dropped} genes with NaN values from {enc.name}"
-            )
+            log.warning(f"Dropped {n_dropped} genes with NaN values from {enc.name}")
             geneset_dict[name] = list(enc.data.columns)
 
     val_dataset.cell_encoders = train_dataset.cell_encoders
@@ -176,7 +174,7 @@ def data_preprocessor(
 
 
 def model_builder(
-    cfg: DictConfig, geneset_dict: dict[str, list[str]]
+    cfg: DictConfig, geneset_dict: t.Dict[str, t.List[str]]
 ) -> keras.Model:
     """Builds the HiDRA model.
 

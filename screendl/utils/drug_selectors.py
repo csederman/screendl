@@ -47,8 +47,8 @@ class DrugSelectorBase(ABC):
     def select(
         self,
         n: int,
-        choices: list[str] | None = None,
-    ) -> list[str]:
+        choices: t.List[str] | None = None,
+    ) -> t.List[str]:
         """"""
         ...
 
@@ -71,7 +71,7 @@ class RandomDrugSelector(DrugSelectorBase):
         self,
         n: int,
         choices: t.Iterable[str] | None = None,
-    ) -> list[str]:
+    ) -> t.List[str]:
         """Samples random drugs.
 
         Parameters
@@ -107,7 +107,7 @@ class MeanResponseSelector(DrugSelectorBase):
         self,
         n: int,
         choices: t.Iterable[str] | None = None,
-    ) -> list[str]:
+    ) -> t.List[str]:
         """Samples random drugs.
 
         Parameters
@@ -149,7 +149,7 @@ class KMeansDrugSelector(DrugSelectorBase):
         self,
         n: int,
         choices: t.Iterable[str] | None = None,
-    ) -> list[str]:
+    ) -> t.List[str]:
         """Selects the specified number of drugs from the response matrix.
 
         Parameters
@@ -203,7 +203,7 @@ class PrincipalDrugSelector(DrugSelectorBase):
         n: int,
         q: int | None = None,
         choices: t.Iterable[str] | None = None,
-    ) -> list[str]:
+    ) -> t.List[str]:
         """Selects drugs using Principle Feature Analysis.
 
         Parameters
@@ -274,7 +274,7 @@ class ShavingDrugSelector(DrugSelectorBase):
         min_cluster_size: int = 2,
         min_gap_threshold: float = 0.0,
         n_random_iters: int = 10,
-    ) -> list[str]:
+    ) -> t.List[str]:
         """Selects drugs using Drug Shaving.
 
         Parameters
@@ -335,7 +335,7 @@ class ShavingDrugSelector(DrugSelectorBase):
         min_cluster_size: int,
         min_gap_threshold: float,
         n_random_iters: int,
-    ) -> list[str] | None:
+    ) -> t.List[str] | None:
         """Performs a single iteration of Drug Shaving."""
         pca = PCA(1, random_state=self._np_rs)
 

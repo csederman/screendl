@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pandas as pd
+import typing as t
 
 from pathlib import Path
 
@@ -122,9 +123,7 @@ def load_cmp_data(
     meta_path: str | Path,
     cnv_path: str | Path | None = None,
     vcf_dir: str | Path | None = None,
-) -> tuple[
-    pd.DataFrame, pd.DataFrame, pd.DataFrame | None, pd.DataFrame | None
-]:
+) -> t.Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame | None, pd.DataFrame | None]:
     """Loads the raw Cell Model Passports Data.
 
     Parameters
@@ -156,11 +155,9 @@ def harmonize_cmp_data(
     cnv_df: pd.DataFrame | None = None,
     mut_df: pd.DataFrame | None = None,
     min_cells_per_cancer_type: int = 20,
-    required_info_columns: list[str] | None = None,
-    cancer_type_blacklist: list[str] | None = None,
-) -> tuple[
-    pd.DataFrame, pd.DataFrame, pd.DataFrame | None, pd.DataFrame | None
-]:
+    required_info_columns: t.List[str] | None = None,
+    cancer_type_blacklist: t.List[str] | None = None,
+) -> t.Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame | None, pd.DataFrame | None]:
     """Harmonizes Cell Model Passports data.
 
     Parameters

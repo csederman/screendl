@@ -149,7 +149,7 @@ def data_loader(cfg: DictConfig) -> Dataset:
 
 def data_splitter(
     cfg: DictConfig, dataset: Dataset
-) -> tuple[Dataset, Dataset, Dataset]:
+) -> t.Tuple[Dataset, Dataset, Dataset]:
     """Splits the dataset into train/validation/test sets.
 
     Parameters
@@ -180,7 +180,7 @@ def data_preprocessor(
     train_dataset: Dataset,
     val_dataset: Dataset | None = None,
     test_dataset: Dataset | None = None,
-) -> tuple[Dataset, Dataset | None, Dataset | None]:
+) -> t.Tuple[Dataset, Dataset | None, Dataset | None]:
     """Preprocessing pipeline.
 
     Assumes the first dataset provided is the training set.
@@ -209,9 +209,7 @@ def data_preprocessor(
     X_mean = np.mean(X_omics, axis=0)
     X_std = np.std(X_omics, axis=0)
 
-    omics_enc.data = {
-        k: (v - X_mean) / X_std for k, v in omics_enc.data.items()
-    }
+    omics_enc.data = {k: (v - X_mean) / X_std for k, v in omics_enc.data.items()}
 
     return train_dataset, val_dataset, test_dataset
 
@@ -299,9 +297,7 @@ def model_trainer(
     train_seq = train_gen.flow_from_dataset(
         train_ds, drugs_first=True, shuffle=True, seed=4114
     )
-    val_seq = val_gen.flow_from_dataset(
-        val_ds, drugs_first=True, shuffle=False
-    )
+    val_seq = val_gen.flow_from_dataset(val_ds, drugs_first=True, shuffle=False)
 
     _ = model.fit(
         train_seq,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import typing as t
 
 from pathlib import Path
 
@@ -14,7 +15,7 @@ def load_hci_data(
     pdmc_meta_path: str | Path,
     drug_meta_path: str | Path,
     mut_path: str | Path | None = None,
-) -> tuple[
+) -> t.Tuple[
     pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame | None
 ]:
     """Loads the raw HCI PDMC data."""
@@ -34,10 +35,10 @@ def harmonize_hci_data(
     resp_df: pd.DataFrame,
     pdmc_meta: pd.DataFrame,
     drug_meta: pd.DataFrame,
-    model_types: list[str],
+    model_types: t.List[str],
     mut_df: pd.DataFrame | None = None,
     min_samples_per_drug: int | None = None,
-) -> tuple[
+) -> t.Tuple[
     pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame | None
 ]:
     """Cleans and harmonizes the raw HCI data."""

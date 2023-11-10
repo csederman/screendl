@@ -12,17 +12,18 @@ from pathlib import Path
 from sklearn.model_selection import train_test_split, StratifiedKFold
 
 
+SplitType = t.Tuple[t.Dict[str, t.List[str]]]
+
+
 def kfold_split_generator(
     ids: pd.Series,
     groups: pd.Series,
     n_splits: int = 10,
     random_state: t.Any | None = None,
     include_validation_set: bool = True,
-) -> t.Generator[tuple[dict[str, list[str]]], None, None]:
+) -> t.Generator[SplitType, None, None]:
     """Generates stratified k-fold splits for the specified ids and groups."""
-    skf = StratifiedKFold(
-        n_splits=n_splits, shuffle=True, random_state=random_state
-    )
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
     for train_idx, test_idx in skf.split(ids, groups):
         train_ids, test_ids = ids.iloc[train_idx], ids.iloc[test_idx]
 
@@ -66,9 +67,7 @@ def generate_mixed_splits(
     ids = label_df["id"]
     groups = label_df["cell_id"]
 
-    split_gen = kfold_split_generator(
-        ids, groups, n_splits=n_splits, random_state=seed
-    )
+    split_gen = kfold_split_generator(ids, groups, n_splits=n_splits, random_state=seed)
 
     for i, split_dict in enumerate(split_gen, 1):
         with open(out_dir / f"fold_{i}.pkl", "wb") as fh:
@@ -97,9 +96,7 @@ def generate_tumor_blind_splits(
     ids = cell_meta["model_id"]
     groups = cell_meta["cancer_type"]
 
-    split_gen = kfold_split_generator(
-        ids, groups, n_splits=n_splits, random_state=seed
-    )
+    split_gen = kfold_split_generator(ids, groups, n_splits=n_splits, random_state=seed)
 
     for i, split in enumerate(split_gen, 1):
         train_cells = split["train"]

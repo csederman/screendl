@@ -7,6 +7,7 @@ import pickle
 
 import numpy as np
 import pandas as pd
+import typing as t
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -253,7 +254,7 @@ HIDRA_GENE_SYMBOL_MAP = {
 
 def read_hidra_gmt(
     gmt_file_path: str | Path, gene_symbol_map: dict[str, str] | None = None
-) -> dict[str, list[str]]:
+) -> t.Dict[str, t.List[str]]:
     """Reads the HiDRA genesets from the GMT file."""
     gene_sets = io.read_gmt(gmt_file_path)
 
@@ -268,7 +269,7 @@ def generate_hidra_inputs(
     exp_df: pd.DataFrame,
     exp_gene_sets: dict[str, list[str]],
     drug_info_df: pd.DataFrame,
-) -> tuple[pd.DataFrame, dict[str, list[str]], pd.DataFrame]:
+) -> t.Tuple[pd.DataFrame, t.Dict[str, t.List[str]], pd.DataFrame]:
     """Generates inputs features for HiDRA.
 
     Parameters

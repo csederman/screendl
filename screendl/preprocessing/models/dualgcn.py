@@ -7,6 +7,7 @@ import pickle
 
 import pandas as pd
 import numpy as np
+import typing as t
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,7 +22,7 @@ from .common import compute_copy_number_ratios
 log = logging.getLogger(__name__)
 
 
-ConvMolFeat = dict[str, tuple[np.ndarray, list[int], list[list[int]]]]
+ConvMolFeat = t.Dict[str, t.Tuple[np.ndarray, t.List[int], t.List[t.List[int]]]]
 
 
 def read_dualgcn_ppi(file_path: str) -> pd.DataFrame:
@@ -62,7 +63,7 @@ def generate_dualgcn_inputs(
     ppi_df: pd.DataFrame,
     cell_info_df: pd.DataFrame,
     drug_info_df: pd.DataFrame,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, ConvMolFeat]:
+) -> t.Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, ConvMolFeat]:
     """"""
 
     # 1. get PPI genes with expression and CNV features
@@ -85,8 +86,7 @@ def generate_dualgcn_inputs(
 
     # 4. extract the PPI features
     ppi_feat = ppi_df[
-        ppi_df["gene_1"].isin(common_genes)
-        & ppi_df["gene_2"].isin(common_genes)
+        ppi_df["gene_1"].isin(common_genes) & ppi_df["gene_2"].isin(common_genes)
     ]
 
     # 5. generate the drug features
