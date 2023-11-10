@@ -7,6 +7,7 @@ import os
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
+import json
 import pickle
 import candle
 
@@ -159,9 +160,27 @@ def run(g_parameters: t.Dict[str, t.Any]) -> keras.callbacks.History:
 
     model.save(output_dir / "model")
 
-    preds = model.predict(val_seq)
-    result = make_pred_df(val_ds, preds)
-    result.to_csv(output_dir / "val_results.csv")
+    val_preds = model.predict(val_seq)
+    val_result = make_pred_df(val_ds, val_preds)
+    val_result.to_csv(output_dir / "val_results.csv")
+
+    # generate validation scores
+    val_loss = np.min(hx.history["val_loss"])
+    val_pcc = stats.pearsonr(val_result["y_true"], val_result["y_pred"])[0]
+    val_scc = stats.spearmanr(val_result["y_true"], val_result["y_pred"])[0]
+    val_rmse = ((val_result["y_true"] - val_result["y_pred"]) ** 2).mean() ** 0.5
+
+    val_scores = {
+        "key": "val_loss",
+        "value": val_loss,
+        "val_loss": val_loss,
+        "pcc": val_pcc,
+        "scc": val_scc,
+        "rmse": val_rmse,
+    }
+
+    with open(output_dir + "/scores.json", "w", encoding="utf-8") as f:
+        json.dump(val_scores, f, ensure_ascii=False, indent=4)
 
     return hx
 
