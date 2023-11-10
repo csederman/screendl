@@ -22,7 +22,6 @@ from tensorflow import keras
 from tensorflow.keras import backend as K
 
 from cdrpy.data.datasets import Dataset
-from cdrpy.data.preprocess import normalize_responses
 from cdrpy.mapper import BatchedResponseGenerator
 
 from screendl import model as screendl
@@ -31,7 +30,6 @@ from screendl.utils.evaluation import make_pred_df
 if t.TYPE_CHECKING:
     from cdrpy.feat.encoders import PandasEncoder
 
-# data_dir = os.environ["CANDLE_DATA_DIR"].rstrip("/")
 file_path = os.path.dirname(os.path.realpath(__file__))
 additional_definitions = []
 required = ["epochs", "batch_size", "learning_rate", "output_dir"]
@@ -72,7 +70,7 @@ def initialize_parameters() -> t.Dict[str, t.Any]:
     return g_parameters
 
 
-def run(g_parameters: t.Dict[str, t.Any]) -> keras.callbacks.History:
+def run(g_parameters: t.Dict[str, t.Any]) -> t.Dict[str, float]:
     """"""
     epochs = g_parameters["epochs"]
     batch_size = g_parameters["batch_size"]
@@ -170,24 +168,31 @@ def run(g_parameters: t.Dict[str, t.Any]) -> keras.callbacks.History:
     val_scc = stats.spearmanr(val_result["y_true"], val_result["y_pred"])[0]
     val_rmse = ((val_result["y_true"] - val_result["y_pred"]) ** 2).mean() ** 0.5
 
-    val_scores = {
-        "key": "val_loss",
-        "value": val_loss,
+    metrics = {
         "val_loss": val_loss,
         "pcc": val_pcc,
         "scc": val_scc,
         "rmse": val_rmse,
     }
 
+    val_scores = {
+        "key": "val_loss",
+        "value": metrics["val_loss"],
+        "val_loss": metrics["val_loss"],
+        "pcc": metrics["pcc"],
+        "scc": metrics["scc"],
+        "rmse": metrics["rmse"],
+    }
+
     with open(output_dir / "scores.json", "w", encoding="utf-8") as f:
         json.dump(val_scores, f, ensure_ascii=False, indent=4)
 
-    return hx
+    return metrics
 
 
 def main() -> None:
     g_parameters = initialize_parameters()
-    history = run(g_parameters)
+    metrics = run(g_parameters)
 
 
 if __name__ == "__main__":
