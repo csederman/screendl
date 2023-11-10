@@ -29,7 +29,7 @@ fi
 
 # Change into directory and execute tests
 cd ${MODEL_DIR}
-python predict.py
+python infer.py
 
 # Check if successful 
 exit 0
