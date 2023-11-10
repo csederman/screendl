@@ -15,6 +15,7 @@ requirements = [
     "rdkit",
     "deepchem >= 2.7.1",
     "cdrpy",
+    "scipy",
 ]
 
 extras_require = {
