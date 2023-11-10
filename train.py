@@ -128,7 +128,7 @@ def run(g_parameters: t.Dict[str, t.Any]) -> keras.callbacks.History:
     # 5. split into train/val/test sets
     split_id = 1
     split_name = "tumor_blind"
-    split_path = data_dir / "splits" / split_name / split_id
+    split_path = data_dir / f"splits/{split_name}/fold_{split_id}.pkl"
 
     with open(split_path, "rb") as fh:
         split = pickle.load(fh)
