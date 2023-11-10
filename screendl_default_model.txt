@@ -1,0 +1,9 @@
+[global]
+# the only absolutely required parameter
+model_name="screendl"
+
+# demonstrating how a list is handled
+epochs=100
+batch_size=512
+learning_rate=0.0001
+output_dir="/home/ec2-user/IMPROVE/Experiment/results"
