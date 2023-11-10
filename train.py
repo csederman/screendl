@@ -30,7 +30,7 @@ from screendl.utils.evaluation import make_pred_df
 if t.TYPE_CHECKING:
     from cdrpy.feat.encoders import PandasEncoder
 
-data_dir = os.environ["CANDLE_DATA_DIR"].rstrip("/")
+# data_dir = os.environ["CANDLE_DATA_DIR"].rstrip("/")
 file_path = os.path.dirname(os.path.realpath(__file__))
 additional_definitions = []
 required = ["epochs", "batch_size", "learning_rate", "output_dir"]
@@ -83,7 +83,7 @@ def run(g_parameters: t.Dict[str, t.Any]) -> keras.callbacks.History:
     # 1. load the data
 
     # NOTE: could move this to preprocess.py
-    data_dir = Path(data_dir)
+    data_dir = Path(g_parameters["data_dir"])
     mol_path = data_dir / "ScreenDL/FeatureMorganFingerprints.csv"
     exp_path = data_dir / "ScreenDL/FeatureGeneExpression.csv"
 
