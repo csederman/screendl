@@ -98,7 +98,7 @@ def data_preprocessor(
 
     # normalize the drug responses
     cell_train_ds, cell_val_ds, _ = normalize_responses(
-        cell_train_ds, cell_val_ds, norm_method="global"
+        cell_train_ds, cell_val_ds, norm_method="grouped"
     )
     pdmc_ds, *_ = normalize_responses(pdmc_ds, norm_method="grouped")
 
