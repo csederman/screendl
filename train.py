@@ -32,7 +32,7 @@ if t.TYPE_CHECKING:
 
 file_path = os.path.dirname(os.path.realpath(__file__))
 additional_definitions = []
-required = ["epochs", "batch_size", "learning_rate", "output_dir"]
+required = ["epochs", "batch_size", "learning_rate"]
 
 
 class ScreenDL(candle.Benchmark):
