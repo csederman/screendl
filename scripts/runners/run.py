@@ -34,12 +34,9 @@ PIPELINES = {
 }
 
 
-@hydra.main(
-    version_base=None, config_path="../../conf/runners", config_name="config"
-)
+@hydra.main(version_base=None, config_path="../../conf/runners", config_name="config")
 def run(cfg: DictConfig) -> None:
     """"""
-    # What I should do here is just use importlib
     if not cfg.model.name in PIPELINES:
         raise ValueError("Unsupported model.")
 
@@ -47,7 +44,7 @@ def run(cfg: DictConfig) -> None:
     module_name = f"screendl.pipelines.basic.{module_file}"
     module = importlib.import_module(module_name)
 
-    module.run_pipeline(cfg)
+    _, scores, _ = module.run_pipeline(cfg)
 
 
 if __name__ == "__main__":

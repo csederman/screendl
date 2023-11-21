@@ -2,35 +2,70 @@
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import typing as t
 
 from pathlib import Path
 
 
+DRUG_INFO_COLUMN_MAPPER = {
+    "Drug Id": "gdsc_drug_id",
+    "Name": "drug_name",
+    "Datasets": "dataset",
+    "PubCHEM": "pubchem_id",
+    "Targets": "targets",
+    "Target pathway": "target_pathway",
+}
+
+DRUG_RESP_COLUMN_MAPPER = {
+    "DATASET": "dataset",
+    "DRUG_ID": "gdsc_drug_id",
+    "DRUG_NAME": "drug_name",
+    "SANGER_MODEL_ID": "model_id",
+    "LN_IC50": "ln_ic50",
+}
+
+INVALID_PUBCHEM_IDS = ("several", "none", "None")
+INVALID_RESPONSE_VALUES = (np.nan, np.inf, -np.inf)
+
+
+def _fix_pubchem_id(id_: t.Any) -> str | float:
+    """Fixes GDSC PubCHEM ids."""
+    if not isinstance(id_, str) or id_ in INVALID_PUBCHEM_IDS:
+        return np.nan
+    return id_.split(",")[0]
+
+
 def load_gdsc_data(
-    resp_path: str | Path, meta_path: str | Path
+    resp_path: str | Path | t.List[str | Path], meta_path: str | Path
 ) -> t.Tuple[pd.DataFrame, pd.DataFrame]:
     """Loads the raw GDSCv2 data.
 
     Parameters
     ----------
-        resp_path: Path to the raw drug response data.
+        resp_path: Path (or a list of paths) to the raw drug response data.
         meta_path: Path to the raw drug annotations.
 
     Returns
     -------
         A tuple of (resp_df, meta_df) `pd.DataFrame` instances.
     """
-    resp_df = pd.read_excel(resp_path)
-    meta_df = pd.read_csv(meta_path)
+    if not isinstance(resp_path, list):
+        resp_path = [resp_path]
+
+    resp_df = pd.concat(map(pd.read_excel, resp_path))
+    meta_df = pd.read_csv(meta_path, dtype={"PubCHEM": str, "Drug Id": int})
+
+    # cleanup column names
+    resp_df = resp_df.rename(columns=DRUG_RESP_COLUMN_MAPPER)
+    meta_df = meta_df.rename(columns=DRUG_INFO_COLUMN_MAPPER)
 
     return resp_df, meta_df
 
 
 def harmonize_gdsc_data(
-    resp_df: pd.DataFrame,
-    meta_df: pd.DataFrame,
+    resp_df: pd.DataFrame, meta_df: pd.DataFrame
 ) -> t.Tuple[pd.DataFrame, pd.DataFrame]:
     """Harmonizes the GDSCv2 data.
 
@@ -43,38 +78,25 @@ def harmonize_gdsc_data(
     -------
         A tuple of (resp_df, meta_df) `pd.DataFrame` instances.
     """
-    screened_drugs = set(resp_df["DRUG_ID"])
+    screened_drugs = set(resp_df["gdsc_drug_id"])
 
-    # only consider GDSCv2 drugs with screening data
-    meta_df = meta_df[meta_df["Datasets"] == "GDSC2"]
-    meta_df = meta_df[meta_df["Drug Id"].isin(screened_drugs)]
+    meta_df["pubchem_id"] = meta_df["pubchem_id"].map(_fix_pubchem_id)
+    meta_df = meta_df[meta_df["gdsc_drug_id"].isin(screened_drugs)]
 
-    # filter drugs without PubCHEM IDs and remove duplicates
-    meta_df = meta_df.dropna(subset="PubCHEM")
-    meta_df = meta_df.drop_duplicates(subset="Name")
+    # remove duplicate entries (prefer GDSC2 if available)
+    meta_df = (
+        meta_df.dropna(subset="pubchem_id")
+        .sort_values(["pubchem_id", "dataset", "number of cell lines"])
+        .drop_duplicates("pubchem_id", keep="last")
+        .sort_values(["drug_name", "dataset", "number of cell lines"])
+        .drop_duplicates("drug_name", keep="last")
+    )
 
-    # check for valid PubCHEM ids
-    invalid_pchem = ["several", "none", "None", None]
-    meta_df = meta_df[~meta_df["PubCHEM"].isin(invalid_pchem)]
-
-    # select the first PubCHEM id when there are multiple
-    meta_df["PubCHEM"] = meta_df["PubCHEM"].map(lambda x: str(x).split(",")[0])
-    resp_df = resp_df[resp_df["DRUG_ID"].isin(meta_df["Drug Id"])]
-
-    # cleanup column names for downstream harmonization
-    meta_col_mapper = {
-        "Name": "drug_name",
-        "PubCHEM": "pubchem_id",
-        "Targets": "targets",
-        "Target pathway": "target_pathway",
-    }
-    meta_df = meta_df.rename(columns=meta_col_mapper)
-
-    resp_col_mapper = {
-        "DRUG_NAME": "drug_name",
-        "SANGER_MODEL_ID": "model_id",
-        "LN_IC50": "ln_ic50",
-    }
-    resp_df = resp_df.rename(columns=resp_col_mapper)
+    # filter the responses by the meta data
+    resp_df = resp_df.merge(
+        meta_df[["dataset", "gdsc_drug_id"]],
+        on=["dataset", "gdsc_drug_id"],
+        how="inner",
+    )
 
     return resp_df, meta_df

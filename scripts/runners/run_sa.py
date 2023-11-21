@@ -28,12 +28,14 @@ from cdrpy.mapper import BatchedResponseGenerator
 from cdrpy.metrics import tf_metrics
 from cdrpy.data.datasets import Dataset
 
+from screendl.utils.evaluation import make_pred_df
 from screendl.utils.drug_selectors import (
+    DrugSelectorType,
+    AgglomerativeDrugSelector,
     DrugSelectorBase,
     KMeansDrugSelector,
     PrincipalDrugSelector,
     RandomDrugSelector,
-    MeanResponseSelector,
 )
 
 
@@ -41,11 +43,13 @@ log = logging.getLogger(__name__)
 
 
 PIPELINES = {"ScreenDL": "screendl"}
-SELECTORS = {
-    "random": RandomDrugSelector,
+
+
+SELECTORS: t.Dict[str, DrugSelectorType] = {
+    "agglomerative": AgglomerativeDrugSelector,
     "kmeans": KMeansDrugSelector,
     "principal": PrincipalDrugSelector,
-    "responsiveness": MeanResponseSelector,
+    "random": RandomDrugSelector,
 }
 
 
@@ -95,27 +99,30 @@ def run_sa(cfg: DictConfig) -> float:
     module_name = f"screendl.pipelines.basic.{module_file}"
     module = importlib.import_module(module_name)
 
-    model, full_ds, train_ds, val_ds, test_ds = module.run_sa_pipeline(cfg)
+    model, _, ds_dict = module.run_pipeline(cfg)
 
-    # freeze drug and cell subnetworks
+    # configure the model for ScreenAhead
+    layer_prefixes = ("mol", "exp", "ont", "mut", "cnv")
     for layer in model.layers:
-        if not layer.name.startswith("shared"):
+        if layer.name.startswith(layer_prefixes):
             layer.trainable = False
 
-    params = cfg.screenahead.hyper
-    num_drugs = cfg.screenahead.opt.n_drugs
+    opts = cfg.screenahead.opt
+    hparams = cfg.screenahead.hyper
 
     # NOTE: some drug selection algorithms require un-normalized responses
-    selection_ds = full_ds.select_cells(set(train_ds.cell_ids))
-    selector_cls: DrugSelectorBase = SELECTORS[cfg.screenahead.opt.selector]
-    selector = selector_cls(selection_ds, seed=cfg.screenahead.opt.seed)
+    train_cell_ids = set(ds_dict["train"].cell_ids)
+    selection_ds = ds_dict["full"].select_cells(train_cell_ids)
+    selector_cls: DrugSelectorBase = SELECTORS[opts.selector]
+    selector = selector_cls(selection_ds, seed=opts.seed)
 
-    generator = BatchedResponseGenerator(test_ds, batch_size=params.batch_size)
+    test_ds: Dataset = ds_dict["test"]
+    test_gen = BatchedResponseGenerator(test_ds, batch_size=hparams.batch_size)
 
     base_weights = model.get_weights()
 
     model.compile(
-        optimizer=keras.optimizers.Adam(learning_rate=params.learning_rate),
+        optimizer=keras.optimizers.Adam(learning_rate=hparams.learning_rate),
         loss="mean_squared_error",
         metrics=[tf_metrics.pearson],
     )
@@ -128,41 +135,42 @@ def run_sa(cfg: DictConfig) -> float:
         cell_ds: Dataset = test_ds.select_cells([cell_id])
         choices = set(cell_ds.drug_ids)
 
-        # require at least 20 drugs in the holdout set
-        if len(choices) < num_drugs + 20:
+        # require at least 1 drug in the holdout set
+        if len(choices) <= opts.n_drugs:
             log.warning(
                 f"Skipping ScreenAhead for {cell_id} "
-                f"(fewer then {num_drugs} drugs screened)."
+                f"(fewer then {opts.n_drugs} drugs screened)."
             )
             continue
 
-        screen_drugs = selector.select(num_drugs, choices=choices)
+        screen_drugs = selector.select(opts.n_drugs, choices=choices)
         screen_ds = cell_ds.select_drugs(screen_drugs)
+        screen_seq = test_gen.flow_from_dataset(screen_ds, shuffle=True)
+
         holdout_ds = cell_ds.select_drugs(choices.difference(screen_drugs))
+        holdout_seq = test_gen.flow_from_dataset(holdout_ds)
 
-        screen_seq = generator.flow_from_dataset(screen_ds, shuffle=True)
-        holdout_seq = generator.flow_from_dataset(holdout_ds)
-
-        model.fit(screen_seq, epochs=params.epochs, verbose=0)
+        model.fit(screen_seq, epochs=hparams.epochs, verbose=0)
 
         if cfg.screenahead.io.predict_all:
             pred_df = generate_all_predictions(
-                cfg, model, [train_ds, val_ds, test_ds], cell_id=cell_id
+                cfg,
+                model=model,
+                datasets=[ds_dict["train"], ds_dict["val"], test_ds],
+                cell_id=cell_id,
             )
             pred_dfs.append(pred_df)
         else:
             preds: np.ndarray = model.predict(holdout_seq, verbose=0)
             pred_dfs.append(
-                pd.DataFrame(
-                    {
-                        "cell_id": holdout_ds.cell_ids,
-                        "drug_id": holdout_ds.drug_ids,
-                        "y_true": holdout_ds.labels,
-                        "y_pred": preds.reshape(-1),
-                        "fold": cfg.dataset.split.id,
-                        "sa_fold": cell_id,
-                        "split": "test",
-                    }
+                make_pred_df(
+                    holdout_ds,
+                    preds,
+                    split_group="test",
+                    model="ScreenDL-SA",
+                    split_id=cfg.dataset.split.id,
+                    split_type=cfg.dataset.split.name,
+                    norm_method=cfg.dataset.preprocess.norm,
                 )
             )
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import pickle
 
 import pandas as pd
@@ -115,3 +116,52 @@ def generate_tumor_blind_splits(
 
         with open(out_dir / f"fold_{i}.pkl", "wb") as fh:
             pickle.dump(split_dict, fh)
+
+
+def generate_tumor_type_blind_splits(
+    out_dir: Path,
+    label_df: pd.DataFrame,
+    cell_meta: pd.DataFrame,
+    seed: t.Any | None = None,
+) -> None:
+    """Generates tumor blind train/val/test splits.
+
+    Parameters
+    ----------
+        out_dir: Path to the output directory.
+        label_df: A `pd.DataFrame` instance containing the labels.
+        cell_meta: A `pd.DataFrame` instance containing cell metadata.
+        n_splits: The number of splits (folds) to generate.
+        random_state: Optional random seed.
+    """
+    out_dir.mkdir(exist_ok=True)
+
+    fold_to_ct = {}
+    for i, (ct, ct_cell_meta) in enumerate(cell_meta.groupby("cancer_type")):
+        fold_to_ct[i] = ct
+        test_cells = ct_cell_meta["cancer_type"]
+
+        # generate a train/validation split
+        other_cell_meta = cell_meta[cell_meta["cancer_type"] != ct]
+        train_cells, val_cells = train_test_split(
+            other_cell_meta["model_id"],
+            test_size=0.1,
+            stratify=other_cell_meta["cancer_type"],
+            random_state=seed,
+        )
+
+        train_ids = label_df[label_df["cell_id"].isin(train_cells)]["id"]
+        val_ids = label_df[label_df["cell_id"].isin(val_cells)]["id"]
+        test_ids = label_df[label_df["cell_id"].isin(test_cells)]["id"]
+
+        split_dict = {
+            "train": list(train_ids),
+            "val": list(val_ids),
+            "test": list(test_ids),
+        }
+
+        with open(out_dir / f"fold_{i}.pkl", "wb") as fh:
+            pickle.dump(split_dict, fh)
+
+    with open(out_dir / "meta.json", "w", encoding="utf-8") as fh:
+        json.dump(fold_to_ct, fh, ensure_ascii=False, indent=4)

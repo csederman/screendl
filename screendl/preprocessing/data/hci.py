@@ -73,6 +73,8 @@ def harmonize_hci_data(
         mut_df = mut_df.drop(columns="sample_barcode")
 
     resp_df = resp_df[resp_df["model_id"].isin(common_models)]
+    resp_df = resp_df.drop_duplicates(subset=["model_id", "drug_name"])
+
     if min_samples_per_drug is not None:
         drug_counts = resp_df["drug_name"].value_counts()
         keep_drugs = drug_counts[drug_counts >= min_samples_per_drug].index

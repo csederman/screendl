@@ -9,6 +9,7 @@ DeepCDR training and evaluation pipeline.
 from __future__ import annotations
 
 import os
+import json
 import logging
 import sys
 import pickle
@@ -28,6 +29,8 @@ from cdrpy.data.preprocess import normalize_responses
 from cdrpy.metrics import tf_metrics
 from cdrpy.util.io import read_pickled_dict
 from cdrpy.mapper import BatchedResponseGenerator
+
+from screendl.utils.evaluation import make_pred_df, get_eval_metrics, ScoreDict
 
 
 log = logging.getLogger(__name__)
@@ -286,7 +289,7 @@ def model_evaluator(
     cfg: DictConfig,
     model: keras.Model,
     datasets: t.Iterable[Dataset],
-) -> None:
+) -> t.Dict[str, ScoreDict]:
     """Evaluates the HiDRA Model.
 
     Parameters
@@ -298,51 +301,57 @@ def model_evaluator(
 
     # FIXME: convert this to use the sequence method
 
+    param_dict = {
+        "model": "DeepCDR",
+        "split_id": cfg.dataset.split.id,
+        "split_type": cfg.dataset.split.name,
+        "norm_method": cfg.dataset.preprocess.norm,
+    }
+
     pred_dfs = []
+    scores = {}
     for ds in datasets:
         gen = BatchedResponseGenerator(ds, cfg.model.hyper.batch_size)
         seq = gen.flow_from_dataset(ds, drugs_first=True, shuffle=False)
         preds: np.ndarray = model.predict(seq)
-        pred_dfs.append(
-            pd.DataFrame(
-                {
-                    "cell_id": ds.cell_ids,
-                    "drug_id": ds.drug_ids,
-                    "y_true": ds.labels,
-                    "y_pred": preds.reshape(-1),
-                    "split": ds.name,
-                }
-            )
-        )
+        pred_df = make_pred_df(ds, preds, split_group=ds.name, **param_dict)
+        pred_dfs.append(pred_df)
+        scores[ds.name] = get_eval_metrics(pred_df)
 
     pred_df = pd.concat(pred_dfs)
-    pred_df["fold"] = cfg.dataset.split.id
-    pred_df["model"] = "DeepCDR"
-
     pred_df.to_csv("predictions.csv", index=False)
 
+    with open("scores.json", "w", encoding="utf-8") as fh:
+        json.dump(scores, fh, ensure_ascii=False, indent=4)
 
-def run_pipeline(cfg: DictConfig) -> None:
+    return scores
+
+
+def run_pipeline(
+    cfg: DictConfig,
+) -> t.Tuple[keras.Model, t.Dict[str, ScoreDict], t.Dict[str, Dataset]]:
     """"""
     dataset_name = cfg.dataset.name
     model_name = cfg.model.name
 
     log.info(f"Loading {dataset_name}...")
-    dataset = data_loader(cfg)
+    ds = data_loader(cfg)
 
     log.info(f"Splitting {dataset_name}...")
-    train_dataset, val_dataset, test_dataset = data_splitter(cfg, dataset)
+    train_ds, val_ds, test_ds = data_splitter(cfg, ds)
 
     log.info(f"Preprocessing {dataset_name}...")
-    train_dataset, val_dataset, test_dataset = data_preprocessor(
-        cfg, train_dataset, val_dataset, test_dataset
-    )
+    train_ds, val_ds, test_ds = data_preprocessor(cfg, train_ds, val_ds, test_ds)
 
     log.info(f"Building {model_name}...")
-    model = model_builder(cfg, train_dataset)
+    model = model_builder(cfg, train_ds)
 
     log.info(f"Training {model_name}...")
-    model = model_trainer(cfg, model, train_dataset, val_dataset)
+    model = model_trainer(cfg, model, train_ds, val_ds)
 
     log.info(f"Evaluating {model_name}...")
-    model_evaluator(cfg, model, [train_dataset, val_dataset, test_dataset])
+    scores = model_evaluator(cfg, model, [train_ds, val_ds, test_ds])
+
+    ds_dict = {"full": ds, "train": train_ds, "val": val_ds, "test": test_ds}
+
+    return model, scores, ds_dict
