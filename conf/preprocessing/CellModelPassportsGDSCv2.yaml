@@ -7,10 +7,13 @@ dataset:
   paths:
     drug_resp: "${_root_}/raw/GDSC/GDSC2_fitted_dose_response_24Jul22.xlsx"
     drug_info: "${_root_}/raw/GDSC/drug_list_2023_06_23.csv"
+
     cell_info: "${_root_}/raw/CellModelPassports/model_list_20230608.csv"
     cell_exp: "${_root_}/raw/CellModelPassports/rnaseq_tpm_20220624.csv"
     cell_cnv: "${_root_}/raw/CellModelPassports/WES_pureCN_CNV_genes_total_copy_number_20221213.csv"
     cell_vcf: "${_root_}/raw/CellModelPassports/mutations_wes_vcf_20221010"
+
+    pubchem_cache: "${_root_}/raw/PubCHEM/properties.json"
   params:
     required_info_columns:
       - ploidy_wes

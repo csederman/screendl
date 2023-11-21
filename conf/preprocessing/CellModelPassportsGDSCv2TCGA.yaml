@@ -15,6 +15,8 @@ dataset:
       meta: "${_root_}/processed/TCGA/SampleMeta.csv"
       resp: "${_root_}/processed/TCGA/ClinicalResponse.csv"
       exp: "${_root_}/processed/TCGA/GeneExpressionTPM.csv"
+    pubchem:
+      cache: "${_root_}/raw/PubCHEM/properties.json"
 
   params:
     cmp:

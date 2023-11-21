@@ -20,6 +20,8 @@ dataset:
       exp: "${_root_}/processed/Welm/OmicsGeneExpressionTPM.csv"
       mut: "${_root_}/processed/Welm/OmicsSomaticMutationsMAF.csv"
       # mut: null
+    pubchem:
+      cache: "${_root_}/raw/PubCHEM/properties.json"
 
   params:
     cmp:
