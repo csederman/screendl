@@ -7,6 +7,7 @@ import pandas as pd
 import typing as t
 
 from pathlib import Path
+from cdrpy.core.utils import is_real_iterable
 
 
 DRUG_INFO_COLUMN_MAPPER = {
@@ -30,15 +31,15 @@ INVALID_PUBCHEM_IDS = ("several", "none", "None")
 INVALID_RESPONSE_VALUES = (np.nan, np.inf, -np.inf)
 
 
-def _fix_pubchem_id(id_: t.Any) -> str | float:
+def _fix_pubchem_id(id_: t.Any) -> str | None:
     """Fixes GDSC PubCHEM ids."""
     if not isinstance(id_, str) or id_ in INVALID_PUBCHEM_IDS:
-        return np.nan
+        return None
     return id_.split(",")[0]
 
 
 def load_gdsc_data(
-    resp_path: str | Path | t.List[str | Path], meta_path: str | Path
+    resp_path: str | Path | t.Iterable[str | Path], meta_path: str | Path
 ) -> t.Tuple[pd.DataFrame, pd.DataFrame]:
     """Loads the raw GDSCv2 data.
 
@@ -51,10 +52,10 @@ def load_gdsc_data(
     -------
         A tuple of (resp_df, meta_df) `pd.DataFrame` instances.
     """
-    if not isinstance(resp_path, list):
+    if not is_real_iterable(resp_path):
         resp_path = [resp_path]
 
-    resp_df = pd.concat(map(pd.read_excel, resp_path))
+    resp_df: pd.DataFrame = pd.concat(map(pd.read_excel, resp_path))
     meta_df = pd.read_csv(meta_path, dtype={"PubCHEM": str, "Drug Id": int})
 
     # cleanup column names
