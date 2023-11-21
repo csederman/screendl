@@ -139,7 +139,7 @@ def make_dataset(
     pubchem_cids = set(gdsc_drug_meta["pubchem_id"])
     pubchem_cids = list(pubchem_cids.union(tcga_drug_meta["pubchem_id"]))
 
-    pubchem_annots = fetch_pubchem_properties(pubchem_cids)
+    pubchem_annots = fetch_pubchem_properties(pubchem_cids, paths.pubchem.cache)
     pubchem_annots["CID"] = pubchem_annots["CID"].astype(str)
     pubchem_annots = pubchem_annots.rename(columns={"CanonicalSMILES": "smiles"})
 

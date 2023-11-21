@@ -95,7 +95,7 @@ def make_dataset(
         cmp_cell_meta,
         gdsc_drug_meta,
         _,
-        cmp_mut_df,
+        cmp_cell_mut,
     ) = harmonize_cmp_gdsc_data(
         exp_df=cmp_cell_exp,
         resp_df=gdsc_drug_resp,
@@ -159,16 +159,12 @@ def make_dataset(
 
     # query PubCHEM annotations
     pubchem_cids = list(drug_meta["pubchem_id"])
-    pubchem_annots = fetch_pubchem_properties(pubchem_cids)
+    pubchem_annots = fetch_pubchem_properties(pubchem_cids, paths.pubchem.cache)
     pubchem_annots["CID"] = pubchem_annots["CID"].astype(str)
-    pubchem_annots = pubchem_annots.rename(
-        columns={"CanonicalSMILES": "smiles"}
-    )
+    pubchem_annots = pubchem_annots.rename(columns={"CanonicalSMILES": "smiles"})
 
     # merge in the PubCHEM annotations
-    drug_meta = drug_meta.merge(
-        pubchem_annots, left_on="pubchem_id", right_on="CID"
-    )
+    drug_meta = drug_meta.merge(pubchem_annots, left_on="pubchem_id", right_on="CID")
 
     if cfg.dataset.save:
         log.info("Saving dataset...")
