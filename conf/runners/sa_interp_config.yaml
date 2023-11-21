@@ -1,0 +1,78 @@
+defaults:
+  - dataset: CellModelPassportsGDSCv2
+  - model: ScreenDL
+  - _self_
+
+hydra:
+  run:
+    dir: /scratch/ucgd/lustre-work/marth/u0871891/datastore/outputs/experiments/sa_interp/${dataset.name}/${model.name}/runs/${now:%Y-%m-%d}_${now:%H-%M-%S}
+  job:
+    chdir: true
+  sweep:
+    dir: /scratch/ucgd/lustre-work/marth/u0871891/datastore/outputs/experiments/sa_interp/${dataset.name}/${model.name}/multiruns/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    subdir: ${hydra:job.num}
+  sweeper:
+    params:
+      dataset.split.id: 1,2,3,4,5,6,7,8,9,10
+
+screenahead:
+  opt:
+    seed: 1771
+    n_drugs: 20
+    max_best_drugs: 10
+  hyper:
+    learning_rate: 0.0001
+    batch_size: 32
+    epochs: 20
+
+experiment:
+  drug_list:
+
+    # chemotherapies
+    - "5-Fluorouracil"
+    - "Bleomycin (50 uM)"
+    - "Cisplatin"
+    - "Cyclophosphamide"
+    - "Cytarabine"
+    - "Docetaxel"
+    - "Epirubicin"
+    - "Gemcitabine"
+    - "Leflunomide"
+    - "Methotrexate"
+    - "Oxaliplatin"
+    - "Paclitaxel"
+    - "Picolinici-acid"
+    - "Piperlongumine"
+    - "Pyridostatin"
+    - "Temozolomide"
+    - "VE-822"
+    - "VE821"
+    - "Vinblastine"
+    - "Vinorelbine"
+
+    # targeted therapies
+    - "AZD3759"
+    - "Alisertib"
+    - "Cediranib"
+    - "Daporinad"
+    - "Doramapimod"
+    - "EHT-1864"
+    - "GDC0810"
+    - "GSK343"
+    - "Irinotecan"
+    - "JQ1"
+    - "Lestaurtinib"
+    - "Linsitinib"
+    - "MK-1775"
+    - "Nilotinib"
+    - "OSI-027"
+    - "PCI-34051"
+    - "Serdemetan"
+    - "Talazoparib"
+    - "Tanespimycin"
+    - "Trametinib"
+    - "UMI-77"
+    - "Wnt-C59"
+
+output:
+  log: logs
