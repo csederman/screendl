@@ -48,7 +48,7 @@ if t.TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-WeightsDict = tuple[str, t.Any]
+WeightsDict = t.Tuple[str, t.Any]
 
 
 SELECTORS = {
@@ -64,7 +64,7 @@ def data_preprocessor(
     cell_train_ds: Dataset,
     cell_val_ds: Dataset,
     pdmc_ds: Dataset,
-) -> tuple[Dataset, Dataset, Dataset]:
+) -> t.Tuple[Dataset, Dataset, Dataset]:
     """Preprocessing pipeline.
 
     Parameters
@@ -126,7 +126,7 @@ def xfer_model_builder(cfg: DictConfig, base_model: keras.Model) -> keras.Model:
 
 def xfer_model_trainer(
     cfg: DictConfig, xfer_model: keras.Model, pdmc_ds: Dataset
-) -> tuple[keras.Model, WeightsDict, pd.DataFrame]:
+) -> t.Tuple[keras.Model, WeightsDict, pd.DataFrame]:
     """Runs transfer learning loop for each PDMC."""
     hparams = cfg.xfer.hyper
     batch_size = pdmc_ds.size if hparams.batch_size is None else hparams.batch_size
@@ -183,7 +183,7 @@ def screenahead_model_trainer(
     cell_ds: Dataset,
     pdmc_ds: Dataset,
     xfer_weights: WeightsDict,
-) -> tuple[keras.Model, WeightsDict, pd.DataFrame]:
+) -> t.Tuple[keras.Model, WeightsDict, pd.DataFrame]:
     """Runs the ScreenAhead training loop."""
     opts = cfg.screenahead.opt
     hparams = cfg.screenahead.hyper

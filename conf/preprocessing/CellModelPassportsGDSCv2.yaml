@@ -29,22 +29,27 @@ splits:
 
 inputs:
   dir: "${_root_}/inputs/${dataset.name}"
+
   include:
     - DeepCDR
     - DualGCN
     - HiDRA
     - ScreenDL
+
   deepcdr:
     paths:
       gene_list: "${_root_}/processed/genelists/CancerGeneCensus736Genes.pkl"
+
   dualgcn:
     paths:
       ppi: "/scratch/ucgd/lustre-work/marth/u0871891/projects/screendl/pkg/DualGCN/data/PPI/PPI_network.txt"
+
   hidra:
     paths:
       gmt: "/scratch/ucgd/lustre-work/marth/u0871891/projects/screendl/pkg/HiDRA/Training/geneset.gmt"
     params:
       use_gene_symbol_map: true
+
   screendl:
     paths:
       exp_gene_list: "${_root_}/processed/genelists/MiniCancerGenome1815Genes.pkl"

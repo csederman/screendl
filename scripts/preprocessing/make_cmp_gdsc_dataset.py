@@ -20,6 +20,7 @@ from omegaconf import OmegaConf, DictConfig
 from screendl.preprocessing.splits import (
     generate_mixed_splits,
     generate_tumor_blind_splits,
+    generate_tumor_type_blind_splits,
 )
 from screendl.preprocessing.data import (
     load_cmp_data,
@@ -86,9 +87,7 @@ def make_dataset(
     )
 
     log.info("Harmonizing GDSC response data...")
-    resp_df, drug_meta = harmonize_gdsc_data(
-        resp_df=resp_df, meta_df=drug_meta
-    )
+    resp_df, drug_meta = harmonize_gdsc_data(resp_df=resp_df, meta_df=drug_meta)
 
     log.info("Harmonizing GDSC and Cell Model Passports...")
     (
@@ -111,14 +110,10 @@ def make_dataset(
     pubchem_cids = list(drug_meta["pubchem_id"])
     pubchem_annots = fetch_pubchem_properties(pubchem_cids)
     pubchem_annots["CID"] = pubchem_annots["CID"].astype(str)
-    pubchem_annots = pubchem_annots.rename(
-        columns={"CanonicalSMILES": "smiles"}
-    )
+    pubchem_annots = pubchem_annots.rename(columns={"CanonicalSMILES": "smiles"})
 
     # merge in the PubCHEM annotations
-    drug_meta = drug_meta.merge(
-        pubchem_annots, left_on="pubchem_id", right_on="CID"
-    )
+    drug_meta = drug_meta.merge(pubchem_annots, left_on="pubchem_id", right_on="CID")
 
     if cfg.dataset.save:
         log.info("Saving dataset...")
@@ -183,6 +178,14 @@ def make_splits(
             label_df=resp_df,
             cell_meta=cell_meta,
             n_splits=params.n_splits,
+            seed=params.seed,
+        )
+
+    if "tumor_type_blind" in cfg.splits.types:
+        generate_tumor_type_blind_splits(
+            out_dir=out_root / "tumor_type_blind",
+            label_df=resp_df,
+            cell_meta=cell_meta,
             seed=params.seed,
         )
 

@@ -5,6 +5,7 @@ Run utilities for ScreenDL.
 from __future__ import annotations
 
 import os
+import json
 import logging
 import pickle
 
@@ -22,6 +23,7 @@ from cdrpy.data.preprocess import normalize_responses
 from cdrpy.mapper import BatchedResponseGenerator
 
 from screendl import model as screendl
+from screendl.utils.evaluation import make_pred_df, get_eval_metrics, ScoreDict
 
 
 if t.TYPE_CHECKING:
@@ -104,7 +106,9 @@ def data_preprocessor(
     Parameters
     ----------
         cfg:
-        datasets:
+        train_dataset:
+        val_dataset:
+        test_dataset:
 
     Returns
     -------
@@ -174,8 +178,6 @@ def model_builder(cfg: DictConfig, train_dataset: Dataset) -> keras.Model:
         mut_dim,
         cnv_dim,
         ont_dim,
-        exp_norm_layer=None,
-        cnv_norm_layer=None,
         exp_hidden_dims=params.hyper.hidden_dims.exp,
         mut_hidden_dims=params.hyper.hidden_dims.mut,
         cnv_hidden_dims=params.hyper.hidden_dims.cnv,
@@ -237,8 +239,8 @@ def model_evaluator(
     cfg: DictConfig,
     model: keras.Model,
     datasets: t.Iterable[Dataset],
-) -> None:
-    """Evaluates the ScreenDL Model.
+) -> t.Dict[str, ScoreDict]:
+    """Evaluates the ScreenDL Model and returns validation metrics.
 
     Parameters
     ----------
@@ -246,60 +248,65 @@ def model_evaluator(
         model:
         datasets:
     """
+    param_dict = {
+        "model": cfg.model.name,
+        "split_id": cfg.dataset.split.id,
+        "split_type": cfg.dataset.split.name,
+        "norm_method": cfg.dataset.preprocess.norm,
+    }
+
     pred_dfs = []
+    scores = {}
     for ds in datasets:
         gen = BatchedResponseGenerator(ds, cfg.model.hyper.batch_size)
         preds: np.ndarray = model.predict(gen.flow(ds.cell_ids, ds.drug_ids))
-        pred_dfs.append(
-            pd.DataFrame(
-                {
-                    "cell_id": ds.cell_ids,
-                    "drug_id": ds.drug_ids,
-                    "y_true": ds.labels,
-                    "y_pred": preds.reshape(-1),
-                    "split": ds.name,
-                }
-            )
-        )
+        pred_df = make_pred_df(ds, preds, split_group=ds.name, **param_dict)
+        pred_dfs.append(pred_df)
+        scores[ds.name] = get_eval_metrics(pred_df)
 
     pred_df = pd.concat(pred_dfs)
-    pred_df["fold"] = cfg.dataset.split.id
-    pred_df["model"] = "ScreenDL"
-
     pred_df.to_csv("predictions.csv", index=False)
 
+    with open("scores.json", "w", encoding="utf-8") as fh:
+        json.dump(scores, fh, ensure_ascii=False, indent=4)
+
     if cfg.dataset.output.save:
-        root_dir = Path("./datasets")
-        root_dir.mkdir()
+        ds_dir = Path("./datasets")
+        ds_dir.mkdir()
         for ds in datasets:
-            file_path = root_dir / f"{ds.name}.h5"
-            ds.save(file_path)
+            ds.save(ds_dir / f"{ds.name}.h5")
+
+    return scores
 
 
-def run_pipeline(cfg: DictConfig) -> None:
+def run_pipeline(
+    cfg: DictConfig,
+) -> t.Tuple[keras.Model, t.Dict[str, ScoreDict], t.Dict[str, Dataset]]:
     """Runs the ScreenDL training pipeline."""
     dataset_name = cfg.dataset.name
     model_name = cfg.model.name
 
     log.info(f"Loading {dataset_name}...")
-    dataset = data_loader(cfg)
+    ds = data_loader(cfg)
 
     log.info(f"Splitting {dataset_name}...")
-    train_dataset, val_dataset, test_dataset = data_splitter(cfg, dataset)
+    train_ds, val_ds, test_ds = data_splitter(cfg, ds)
 
     log.info(f"Preprocessing {dataset_name}...")
-    train_dataset, val_dataset, test_dataset = data_preprocessor(
-        cfg, train_dataset, val_dataset, test_dataset
-    )
+    train_ds, val_ds, test_ds = data_preprocessor(cfg, train_ds, val_ds, test_ds)
 
     log.info(f"Building {model_name}...")
-    model = model_builder(cfg, train_dataset)
+    model = model_builder(cfg, train_ds)
 
     log.info(f"Training {model_name}...")
-    model = model_trainer(cfg, model, train_dataset, val_dataset)
+    model = model_trainer(cfg, model, train_ds, val_ds)
 
     log.info(f"Evaluating {model_name}...")
-    model_evaluator(cfg, model, [train_dataset, val_dataset, test_dataset])
+    scores = model_evaluator(cfg, model, [train_ds, val_ds, test_ds])
+
+    ds_dict = {"full": ds, "train": train_ds, "val": val_ds, "test": test_ds}
+
+    return model, scores, ds_dict
 
 
 def run_hp_pipeline(cfg: DictConfig) -> float:
@@ -345,29 +352,27 @@ def run_hp_pipeline(cfg: DictConfig) -> float:
 
 def run_sa_pipeline(
     cfg: DictConfig,
-) -> t.Tuple[keras.Model, Dataset, Dataset, Dataset]:
+) -> t.Tuple[keras.Model, Dataset, Dataset, Dataset, Dataset]:
     """Runs the ScreenDL pipeline with ScreenAhead."""
     dataset_name = cfg.dataset.name
     model_name = cfg.model.name
 
     log.info(f"Loading {dataset_name}...")
-    dataset = data_loader(cfg)
+    ds = data_loader(cfg)
 
     log.info(f"Splitting {dataset_name}...")
-    train_dataset, val_dataset, test_dataset = data_splitter(cfg, dataset)
+    train_ds, val_ds, test_ds = data_splitter(cfg, ds)
 
     log.info(f"Preprocessing {dataset_name}...")
-    train_dataset, val_dataset, test_dataset = data_preprocessor(
-        cfg, train_dataset, val_dataset, test_dataset
-    )
+    train_ds, val_ds, test_ds = data_preprocessor(cfg, train_ds, val_ds, test_ds)
 
     log.info(f"Building {model_name}...")
-    model = model_builder(cfg, train_dataset)
+    model = model_builder(cfg, train_ds)
 
     log.info(f"Training {model_name}...")
-    model = model_trainer(cfg, model, train_dataset, val_dataset)
+    model = model_trainer(cfg, model, train_ds, val_ds)
 
     log.info(f"Evaluating {model_name}...")
-    model_evaluator(cfg, model, [train_dataset, val_dataset, test_dataset])
+    model_evaluator(cfg, model, [train_ds, val_ds, test_ds])
 
-    return model, dataset, train_dataset, val_dataset, test_dataset
+    return model, ds, train_ds, val_ds, test_ds
