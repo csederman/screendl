@@ -53,8 +53,7 @@ def get_gdsc_data() -> GDSCData:
 
     # get drug properties from PubCHEM
     pchem_ids = list(meta_data["pubchem_id"])
-    # pchem_props = pubchem.fetch_pubchem_properties(pchem_ids)
-    pchem_props = pubchem.fetch_pubchem_properties(pchem_ids, "./cache.json")
+    pchem_props = pubchem.fetch_pubchem_properties(pchem_ids)
     pchem_props = pchem_props.rename(columns={"CanonicalSMILES": "smiles"})
     pchem_props["CID"] = pchem_props["CID"].astype(str)
 
