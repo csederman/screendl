@@ -41,10 +41,12 @@ def run_hp(cfg: DictConfig) -> float:
         raise ValueError("Unsupported model.")
 
     module_file = PIPELINES[cfg.model.name]
-    module_name = f"pipelines.basic.{module_file}"
-    module = importlib.import_module(module_name, package="screendl")
+    module_name = f"screendl.pipelines.basic.{module_file}"
+    module = importlib.import_module(module_name)
 
-    return module.run_hp_pipeline(cfg)
+    _, scores, _ = module.run_pipeline(cfg)
+
+    return scores["val"]["value"]
 
 
 if __name__ == "__main__":
