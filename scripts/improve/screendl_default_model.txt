@@ -1,7 +1,18 @@
 [global]
-model_name="screendl"
+model_name = "screendl"
+
+# split
+id = 1
+type = "tumor_blind"
+
 
 # hparams
-epochs=100
-batch_size=512
-learning_rate=0.0001
+epochs = 100
+batch_size = 512
+learning_rate = 0.0001
+activation = "leaky_relu"
+
+# architecture
+shared_hidden_dims = [64, 32, 16, 8]
+exp_hidden_dims = [512, 256, 128, 64]
+mol_hidden_dims = [256, 128, 64]

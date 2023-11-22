@@ -9,6 +9,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 import typing as t
 import benchmark as bmk
+import tensorflow.keras.backend as K  # pyright: ignore[reportMissingImports]
 
 from types import SimpleNamespace
 from pathlib import Path
@@ -39,13 +40,19 @@ def split_data(g_params: GParams, D: Dataset) -> t.Tuple[Dataset, Dataset, Datas
 
 def run(g_params: GParams) -> t.Dict[str, float]:
     """Trains and evaluates ScreenDL for the specified parameters."""
+    print(g_params)
 
     data_dir = Path(g_params["data_dir"])
 
     cell_encoders = screendl.load_cell_features(data_dir / input_paths.exp)
     drug_encoders = screendl.load_drug_features(data_dir / input_paths.mol)
 
-    D = Dataset.from_csv(data_dir / input_paths.labels)
+    D = Dataset.from_csv(
+        data_dir / input_paths.labels,
+        name="cmp-gdsc2",
+        cell_encoders=cell_encoders,
+        drug_encoders=drug_encoders,
+    )
 
     # with open(split_)
 
