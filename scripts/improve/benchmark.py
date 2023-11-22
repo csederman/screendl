@@ -17,6 +17,21 @@ additional_definitions = [
         "type": str,
         "default": "leaky_relu",
     },
+    {
+        "name": "use_dropout",
+        "type": bool,
+        "default": False,
+    },
+    {
+        "name": "dropout_rate",
+        "type": float,
+        "default": 0.1,
+    },
+    {
+        "name": "use_batch_norm",
+        "type": bool,
+        "default": False,
+    },
     # architecture
     {
         "name": "shared_hidden_dims",
