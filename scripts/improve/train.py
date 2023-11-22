@@ -8,6 +8,7 @@ import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 import typing as t
+import benchmark as bmk
 
 from types import SimpleNamespace
 from pathlib import Path
@@ -15,8 +16,6 @@ from pathlib import Path
 from cdrpy.data import Dataset
 from screendl import model as screendl
 from screendl.utils import evaluation as eval_utils
-
-from . import benchmark as bmk
 
 file_path = os.path.dirname(os.path.realpath(__file__))
 initialize_params = bmk.make_initialize_params(file_path)
