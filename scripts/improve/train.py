@@ -54,3 +54,12 @@ def run(g_params: GParams) -> t.Dict[str, float]:
 def main() -> None:
     g_parameters = initialize_params()
     scores = run(g_parameters)
+
+
+if __name__ == "__main__":
+    main()
+
+    try:
+        K.clear_session()
+    except AttributeError:
+        pass
