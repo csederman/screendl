@@ -12,7 +12,7 @@ fi
 if [ $# -eq 2 ] ; then
         CUDA_VISIBLE_DEVICES=$1 ; shift
         CANDLE_DATA_DIR=$1 ; shift
-        CMD="python ${CANDLE_MODEL}"
+        CMD="python ${CANDLE_PREPROCESS}"
         echo "CMD = $CMD"
 
 elif [ $# -ge 3 ] ; then
@@ -23,13 +23,13 @@ elif [ $# -ge 3 ] ; then
         if [ -f "$CANDLE_DATA_DIR/$1" ] ; then
 		    echo "$1 is a file"
             CANDLE_CONFIG=$1 ; shift
-            CMD="python ${CANDLE_MODEL} --config_file $CANDLE_CONFIG $*"
+            CMD="python ${CANDLE_PREPROCESS} --config_file $CANDLE_CONFIG $*"
             echo "CMD = $CMD $*"
 
         # else passthrough $@
         else
 		echo "$1 is not a file"
-                CMD="python ${CANDLE_MODEL} $*"
+                CMD="python ${CANDLE_PREPROCESS} $*"
                 echo "CMD = $CMD"
 
         fi
@@ -42,7 +42,7 @@ echo "using CUDA_VISIBLE_DEVICES ${CUDA_VISIBLE_DEVICES}"
 echo "using CANDLE_DATA_DIR ${CANDLE_DATA_DIR}"
 echo "using CANDLE_CONFIG ${CANDLE_CONFIG}"
 
-# Set up environmental variables and execute model
+# Set up environmental variables and execute preprocessing script
 EXE_DIR=$(dirname ${CANDLE_PREPROCESS})
 cd "$EXE_DIR" || exit
 
