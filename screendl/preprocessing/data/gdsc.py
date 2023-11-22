@@ -59,8 +59,9 @@ def load_gdsc_data(
     meta_df = pd.read_csv(meta_path, dtype={"PubCHEM": str, "Drug Id": int})
 
     # cleanup column names
-    resp_df = resp_df.rename(columns=DRUG_RESP_COLUMN_MAPPER)
+    meta_df.columns = [c.strip() for c in meta_df.columns]
     meta_df = meta_df.rename(columns=DRUG_INFO_COLUMN_MAPPER)
+    resp_df = resp_df.rename(columns=DRUG_RESP_COLUMN_MAPPER)
 
     return resp_df, meta_df
 
