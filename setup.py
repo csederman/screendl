@@ -7,6 +7,7 @@ from setuptools import setup
 requirements = [
     "numpy >= 1.21",
     "pandas >= 2.0.3",
+    "openpyxl == 3.1.2",
     "tensorflow == 2.11.1",
     "tensorflow-probability == 0.19.0",
     "scikit-learn >= 1.3.0",
