@@ -55,6 +55,7 @@ def run(g_params: GParams) -> t.Dict[str, float]:
     )
 
     # with open(split_)
+    print(os.getcwd())
 
 
 def main() -> None:
