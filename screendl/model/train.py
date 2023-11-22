@@ -60,7 +60,7 @@ def train_model(
         callbacks.append(
             keras.callbacks.EarlyStopping(
                 "val_loss",
-                patience=15,
+                patience=10,
                 restore_best_weights=True,
                 start_from_epoch=3,
                 verbose=1,
@@ -68,15 +68,11 @@ def train_model(
         )
     if tensorboard:
         if log_dir is None:
-            raise ValueError(
-                "log_dir must be specified when using tensorboard"
-            )
+            raise ValueError("log_dir must be specified when using tensorboard")
         if not os.path.exists(log_dir):
             os.makedirs(log_dir, exist_ok=True)
         # FIXME: check what kind of paths this works with
-        callbacks.append(
-            keras.callbacks.TensorBoard(log_dir, histogram_freq=1)
-        )
+        callbacks.append(keras.callbacks.TensorBoard(log_dir, histogram_freq=1))
 
     train_gen = BatchedResponseGenerator(train_ds, batch_size)
     train_seq = train_gen.flow(
