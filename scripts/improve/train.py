@@ -58,8 +58,8 @@ def run(g_params: GParams) -> t.Dict[str, float]:
 
 
 def main() -> None:
-    g_parameters = initialize_params()
-    scores = run(g_parameters)
+    g_params = initialize_params()
+    scores = run(g_params)
 
 
 if __name__ == "__main__":

@@ -11,7 +11,29 @@ import typing as t
 from tensorflow.keras import backend as K  # pyright: ignore[reportMissingImports]
 
 
-additional_definitions = []
+additional_definitions = [
+    {
+        "name": "activation",
+        "type": str,
+        "default": "leaky_relu",
+    },
+    # architecture
+    {
+        "name": "shared_hidden_dims",
+        "type": t.List[str],
+        "default": [64, 32, 16, 8],
+    },
+    {
+        "name": "exp_hidden_dims",
+        "type": t.List[str],
+        "default": [512, 256, 128, 64],
+    },
+    {
+        "name": "mol_hidden_dims",
+        "type": t.List[str],
+        "default": [256, 128, 64],
+    },
+]
 required_definitions = ["epochs", "batch_size", "learning_rate"]
 
 
