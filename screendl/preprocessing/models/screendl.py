@@ -213,6 +213,7 @@ def _generate_mol_features(
         drug_to_morgan[drug_name] = list(fp)
 
     mol_feat = pd.DataFrame.from_dict(drug_to_morgan, orient="index")
+    mol_feat.columns = mol_feat.columns.astype(str)
 
     return mol_feat
 
