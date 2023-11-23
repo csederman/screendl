@@ -4,43 +4,55 @@
 from __future__ import annotations
 
 import pandas as pd
+import pandas._typing as pdt
 import typing as t
 
-from pathlib import Path
+from dataclasses import dataclass
+
+from ..utils import filter_by_value_counts
+
+
+FilePathOrBuff = t.Union[pdt.FilePath, pdt.ReadCsvBuffer[bytes], pdt.ReadCsvBuffer[str]]
+
+
+@dataclass
+class TCGAData:
+    """Container for TCGA data sources."""
+
+    resp: pd.DataFrame
+    cell_meta: pd.DataFrame
+    exp: pd.DataFrame
+    drug_meta: pd.DataFrame | None = None
 
 
 def load_tcga_data(
-    exp_path: str | Path,
-    resp_path: str | Path,
-    meta_path: str | Path,
-) -> t.Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    exp_path: FilePathOrBuff,
+    resp_path: FilePathOrBuff,
+    meta_path: FilePathOrBuff,
+) -> TCGAData:
     """Loads the raw TCGA data."""
-    exp_df = pd.read_csv(exp_path, index_col=0)
-    resp_df = pd.read_csv(resp_path)
-    pt_meta = pd.read_csv(meta_path)
-
-    return exp_df, resp_df, pt_meta
+    resp_data = pd.read_csv(resp_path)
+    cell_meta = pd.read_csv(meta_path)
+    exp_data = pd.read_csv(exp_path, index_col=0)
+    return TCGAData(resp_data, cell_meta, exp_data)
 
 
 def harmonize_tcga_data(
-    exp_df: pd.DataFrame,
-    resp_df: pd.DataFrame,
-    meta_df: pd.DataFrame,
+    data: TCGAData,
     min_samples_per_drug: int | None = None,
-) -> t.Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+) -> TCGAData:
     """Harmonizes the raw TCGA data."""
-    common_samples = exp_df.index.intersection(resp_df["sample_id"])
-    common_samples = common_samples.intersection(meta_df["sample_id"])
-    exp_df = exp_df.loc[common_samples].sort_index()
-    resp_df = resp_df[resp_df["sample_id"].isin(common_samples)]
-    meta_df = meta_df[meta_df["sample_id"].isin(common_samples)]
+    common_samples = data.exp.index.intersection(data.resp["sample_id"])
+    common_samples = common_samples.intersection(data.cell_meta["sample_id"])
 
-    resp_df = resp_df.rename(columns={"sample_id": "model_id"})
-    meta_df = meta_df.rename(columns={"sample_id": "model_id"})
+    data.exp = data.exp.loc[common_samples].sort_index()
+    data.resp = data.resp[data.resp["sample_id"].isin(common_samples)]
+    data.cell_meta = data.cell_meta[data.cell_meta["sample_id"].isin(common_samples)]
+
+    data.resp = data.resp.rename(columns={"sample_id": "model_id"})
+    data.cell_meta = data.cell_meta.rename(columns={"sample_id": "model_id"})
 
     if min_samples_per_drug is not None:
-        drug_counts = resp_df["drug_name"].value_counts()
-        keep_drugs = drug_counts[drug_counts >= min_samples_per_drug].index
-        resp_df = resp_df[resp_df["drug_name"].isin(keep_drugs)]
+        data.resp = filter_by_value_counts(data.resp, "drug_name", min_samples_per_drug)
 
-    return exp_df, resp_df, meta_df
+    return data

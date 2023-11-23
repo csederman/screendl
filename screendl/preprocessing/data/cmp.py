@@ -3,12 +3,30 @@
 from __future__ import annotations
 
 import pandas as pd
+import pandas._typing as pdt
 import typing as t
 
+from dataclasses import dataclass
 from pathlib import Path
 
+from ..utils import filter_by_value_counts
 
-def load_cmp_mutations(vcf_dir: str | Path) -> pd.DataFrame:
+
+StrOrPath = t.Union[str, Path]
+FilePathOrBuff = t.Union[pdt.FilePath, pdt.ReadCsvBuffer[bytes], pdt.ReadCsvBuffer[str]]
+
+
+@dataclass(repr=False)
+class CMPData:
+    """Container for Cell Model Passports data sources."""
+
+    exp: pd.DataFrame
+    meta: pd.DataFrame
+    cnv: pd.DataFrame | None = None
+    mut: pd.DataFrame | None = None
+
+
+def load_cmp_mutations(vcf_dir: StrOrPath) -> pd.DataFrame:
     """Parses a single Cell Model Passports WES VCF file.
 
     Parameters
@@ -89,7 +107,7 @@ def load_cmp_mutations(vcf_dir: str | Path) -> pd.DataFrame:
     return pd.concat(mut_dfs).drop_duplicates()
 
 
-def load_cmp_expression(file_path: str | Path) -> pd.DataFrame:
+def load_cmp_expression(file_path: FilePathOrBuff) -> pd.DataFrame:
     """Loads the raw Cell Model Passports gene expression file."""
     df = (
         pd.read_csv(file_path, skiprows=[1, 2, 3, 4], low_memory=False)
@@ -105,7 +123,7 @@ def load_cmp_expression(file_path: str | Path) -> pd.DataFrame:
     return df.loc[:, ~df.columns.duplicated()]
 
 
-def load_cmp_copy_number(file_path: str | Path) -> pd.DataFrame:
+def load_cmp_copy_number(file_path: FilePathOrBuff) -> pd.DataFrame:
     """Loads the raw Cell Model Passports copy number file."""
     df = (
         pd.read_csv(file_path, skiprows=[0, 2, 3], index_col=0)
@@ -119,19 +137,19 @@ def load_cmp_copy_number(file_path: str | Path) -> pd.DataFrame:
 
 
 def load_cmp_data(
-    exp_path: str | Path,
-    meta_path: str | Path,
-    cnv_path: str | Path | None = None,
-    vcf_dir: str | Path | None = None,
-) -> t.Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame | None, pd.DataFrame | None]:
+    exp_path: FilePathOrBuff,
+    meta_path: FilePathOrBuff,
+    cnv_path: FilePathOrBuff | None = None,
+    vcf_dir: StrOrPath | None = None,
+) -> CMPData:
     """Loads the raw Cell Model Passports Data.
 
     Parameters
     ----------
         exp_path: Path to the raw expression data.
+        meta_path: Path to the raw cell line metadata.
         cnv_path: Path to the raw copy number data.
         vcf_dir: Directory containing the WES VCF files.
-        meta_path: Path to the raw cell line metadata.
 
     Returns
     -------
@@ -141,73 +159,63 @@ def load_cmp_data(
     if isinstance(vcf_dir, str):
         vcf_dir = Path(vcf_dir)
 
-    exp_df = load_cmp_expression(exp_path)
-    meta_df = pd.read_csv(meta_path)
-    cnv_df = None if cnv_path is None else load_cmp_copy_number(cnv_path)
-    mut_df = None if vcf_dir is None else load_cmp_mutations(vcf_dir)
+    exp_data = load_cmp_expression(exp_path)
+    meta_data = pd.read_csv(meta_path)
 
-    return exp_df, meta_df, cnv_df, mut_df
+    cnv_data = None if cnv_path is None else load_cmp_copy_number(cnv_path)
+    mut_data = None if vcf_dir is None else load_cmp_mutations(vcf_dir)
+
+    return CMPData(exp_data, meta_data, cnv_data, mut_data)
 
 
 def harmonize_cmp_data(
-    exp_df: pd.DataFrame,
-    meta_df: pd.DataFrame,
-    cnv_df: pd.DataFrame | None = None,
-    mut_df: pd.DataFrame | None = None,
+    data: CMPData,
     min_cells_per_cancer_type: int = 20,
     required_info_columns: t.List[str] | None = None,
     cancer_type_blacklist: t.List[str] | None = None,
-) -> t.Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame | None, pd.DataFrame | None]:
+) -> CMPData:
     """Harmonizes Cell Model Passports data.
 
     Parameters
     ----------
-        exp_df: The raw expression data.
-        meta_df: The raw cell line metadata.
-        cnv_df: The raw copy number data.
-        mut_df: The raw somatic mutation data.
+        data: The raw CMPData object.
         min_cells_per_cancer_type: Min number of cell lines per cancer type.
-        required_info_columns: Columns in `meta_df` which must not
-            contain NaN values.
+        required_info_columns: Required sample metadata columns.
         cancer_type_blacklist: List of cancer types to exclued.
 
     Returns
     -------
-        A tuple of (exp_df, cnv_df, mut_df, mut_df_pos, meta_df)
-            `pd.DataFrame` instances.
+        The harmonized CMPData object.
 
     """
     if required_info_columns is not None:
-        meta_df = meta_df.dropna(subset=required_info_columns)
+        data.meta = data.meta.dropna(subset=required_info_columns)
 
     if cancer_type_blacklist is not None:
-        meta_df = meta_df[~meta_df["cancer_type"].isin(cancer_type_blacklist)]
+        data.meta = data.meta[~data.meta["cancer_type"].isin(cancer_type_blacklist)]
 
-    meta_df = meta_df.drop_duplicates(subset="model_id")
+    data.meta = data.meta.drop_duplicates(subset="model_id")
 
     # retain cell lines with all feature types
-    common_cells = set(meta_df["model_id"]).intersection(exp_df.index)
-    if cnv_df is not None:
-        common_cells = common_cells.intersection(cnv_df.index)
-    if mut_df is not None:
-        common_cells = common_cells.intersection(mut_df["model_id"])
-
-    meta_df = meta_df[meta_df["model_id"].isin(common_cells)]
+    common_samples = set(data.meta["model_id"]).intersection(data.exp.index)
+    if data.cnv is not None:
+        common_samples = common_samples.intersection(data.cnv.index)
+    if data.mut is not None:
+        common_samples = common_samples.intersection(data.mut["model_id"])
+    data.meta = data.meta[data.meta["model_id"].isin(common_samples)]
 
     # filter cancer types with fewer than `min_cells_per_cancer_type` cells
-    ct_counts = meta_df["cancer_type"].value_counts()
-    keep_cts = ct_counts[ct_counts >= min_cells_per_cancer_type].index
-    meta_df = meta_df[meta_df["cancer_type"].isin(keep_cts)]
+    data.meta = filter_by_value_counts(
+        data.meta, "cancer_type", min_cells_per_cancer_type
+    )
 
     # harmonize features and metadata
-    final_cells = sorted(list(meta_df["model_id"]))
-    exp_df = exp_df.loc[final_cells]
+    final_samples = sorted(list(data.meta["model_id"]))
+    data.exp = data.exp.loc[final_samples]
+    if data.cnv is not None:
+        data.cnv = data.cnv.loc[final_samples]
+    if data.mut is not None:
+        data.mut = data.mut[data.mut["model_id"].isin(final_samples)]
+        data.mut = data.mut.sort_values("model_id")
 
-    if cnv_df is not None:
-        cnv_df = cnv_df.loc[final_cells]
-
-    if mut_df is not None:
-        mut_df = mut_df[mut_df["model_id"].isin(final_cells)]
-        mut_df = mut_df.sort_values("model_id")
-
-    return exp_df, meta_df, cnv_df, mut_df
+    return data

@@ -5,14 +5,19 @@ from __future__ import annotations
 import pandas as pd
 import typing as t
 
-from .cmp import load_cmp_data, harmonize_cmp_data
-from .gdsc import load_gdsc_data, harmonize_gdsc_data
-from .hci import load_hci_data, harmonize_hci_data
+from .cmp import CMPData, load_cmp_data, harmonize_cmp_data
+from .gdsc import GDSCData, load_gdsc_data, harmonize_gdsc_data
+from .hci import HCIData, load_hci_data, harmonize_hci_data
+from .tcga import TCGAData, load_tcga_data, harmonize_tcga_data
 from .pubchem import fetch_pubchem_properties
-from .tcga import load_tcga_data, harmonize_tcga_data
+
+from ..utils import intersect_columns
 
 
 __all__ = [
+    "CMPData",
+    "GDSCData",
+    "HCIData",
     "load_cmp_data",
     "harmonize_cmp_data",
     "load_gdsc_data",
@@ -29,178 +34,134 @@ __all__ = [
 
 
 def harmonize_cmp_gdsc_data(
-    exp_df: pd.DataFrame,
-    resp_df: pd.DataFrame,
-    cell_meta: pd.DataFrame,
-    drug_meta: pd.DataFrame,
-    cnv_df: pd.DataFrame | None = None,
-    mut_df: pd.DataFrame | None = None,
-) -> t.Tuple[
-    pd.DataFrame,
-    pd.DataFrame,
-    pd.DataFrame,
-    pd.DataFrame,
-    pd.DataFrame | None,
-    pd.DataFrame | None,
-]:
-    """Harmonizes the GDSCv2 and Cell Model Passports dataset.
-
-    This function is designed to be run following initial loading and
-    harmonization of the individual dataset components as part of the
-    preprocessing pipeline.
+    cmp_data: CMPData, gdsc_data: GDSCData
+) -> t.Tuple[CMPData, GDSCData]:
+    """Harmonizes the GDSC and Cell Model Passports data.
 
     Parameters
     ----------
-        exp_df: The harmonized Cell Model Passports expression data.
-        cell_meta: The harmonized Cell Model Passports cell line meta data.
-        resp_df: The harmonized GDSC drug response data.
-        drug_meta: The harmonized GDSC drug meta data.
-        cnv_df: The harmonized Cell Model Passports copy number data.
-        mut_df: The harmonized Cell Model Passports somatic MAF data.
+        cmp_data: A harmonized CMPData object.
+        gdsc_data: The harmonized GDSCData object.
 
     Returns
     -------
-        A (exp, resp, cell_meta, drug_meta, cnv, mut) tuple of harmonized
-            `pandas.DataFrame` instances.
+        A tuple (cmp_data, gdsc_data) of harmonized data objects.
     """
-    cmp_cells = set(cell_meta["model_id"])
-    gdsc_cells = set(resp_df["model_id"])
-    common_cells = sorted(list(set.intersection(cmp_cells, gdsc_cells)))
+    common_samples = intersect_columns(cmp_data.meta, gdsc_data.resp, "model_id")
+    common_samples = sorted(list(common_samples))
 
-    # filter the Cell Model Passports data
-    exp_df = exp_df.loc[common_cells]
-    cell_meta = cell_meta[cell_meta["model_id"].isin(common_cells)]
+    cmp_data.exp = cmp_data.exp.loc[common_samples]
+    cmp_data.meta = cmp_data.meta[cmp_data.meta["model_id"].isin(common_samples)]
 
-    if cnv_df is not None:
-        cnv_df = cnv_df.loc[common_cells]
+    if cmp_data.cnv is not None:
+        cmp_data.cnv = cmp_data.cnv.loc[common_samples]
 
-    if mut_df is not None:
-        mut_df = mut_df[mut_df["model_id"].isin(common_cells)]
+    if cmp_data.mut is not None:
+        cmp_data.mut = cmp_data.mut[cmp_data.mut["model_id"].isin(common_samples)]
 
-    # filter the GDSC data
-    resp_df = resp_df[resp_df["model_id"].isin(common_cells)]
+    gdsc_data.resp = gdsc_data.resp[gdsc_data.resp["model_id"].isin(common_samples)]
 
-    return (
-        exp_df,
-        resp_df,
-        cell_meta,
-        drug_meta,
-        cnv_df,
-        mut_df,
-    )
+    return cmp_data, gdsc_data
 
 
 def harmonize_cmp_gdsc_hci_data(
-    cmp_exp: pd.DataFrame,
-    hci_exp: pd.DataFrame,
-    gdsc_resp: pd.DataFrame,
-    hci_resp: pd.DataFrame,
-    cmp_cell_meta: pd.DataFrame,
-    hci_pdmc_meta: pd.DataFrame,
-    gdsc_drug_meta: pd.DataFrame,
-    hci_drug_meta: pd.DataFrame,
-    cmp_mut: pd.DataFrame | None = None,
-    hci_mut: pd.DataFrame | None = None,
+    cmp_data: CMPData,
+    hci_data: HCIData,
+    gdsc_data: GDSCData,
     include_all_hci_drugs: bool = False,
-) -> t.Tuple[
-    pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame | None
-]:
+) -> t.Tuple[CMPData, HCIData, GDSCData]:
     """Harmonizes the Cell Model Passports, GDSC and HCI data."""
 
+    # FIXME: I should just return the original objects and the concatenate them later
+    #   instead of concatenating them now -> so return tuple(CMPDate, HCIData, GDSCData)
+
     # 1. harmonize the omics data
-    cmp_cell_meta["model_type"] = "cell line"
-    cmp_cell_meta["domain"] = "CELL"
-    hci_pdmc_meta["domain"] = "PDMC"
+    cmp_data.meta["model_type"] = "cell line"
+    cmp_data.meta["domain"] = "CELL"
+    hci_data.meta["domain"] = "PDMC"
 
     cols = ["model_id", "cancer_type", "model_type", "domain"]
-    sample_meta = pd.concat([cmp_cell_meta[cols], hci_pdmc_meta[cols]])
+    cmp_data.meta = cmp_data.meta[cols]
+    hci_data.cell_meta = hci_data.cell_meta[cols]
+    # cell_meta = pd.concat([cmp_data.meta[cols], hci_data.cell_meta[cols]])
 
-    common_genes = cmp_exp.columns.intersection(hci_exp.columns).sort_values()
-    exp_df = pd.concat([cmp_exp[common_genes], hci_exp[common_genes]])
+    cmp_exp_genes = cmp_data.exp.columns
+    hci_exp_genes = hci_data.exp.columns
+    common_genes = cmp_exp_genes.intersection(hci_exp_genes).sort_values()
+    cmp_data.exp = cmp_data.exp[common_genes]
+    hci_data.exp = hci_data.exp[common_genes]
+    # exp_data = pd.concat([cmp_data.exp[common_genes], hci_data.exp[common_genes]])
 
-    mut_df = None
-    if all(x is not None for x in [cmp_mut, hci_mut]):
-        cmp_mut_genes = set(cmp_mut["gene_symbol"])
-        hci_mut_genes = set(hci_mut["gene_symbol"])
+    if cmp_data.mut is not None and hci_data.mut is not None:
+        cmp_mut_genes = set(cmp_data.mut["gene_symbol"])
+        hci_mut_genes = set(hci_data.mut["gene_symbol"])
         common_genes = cmp_mut_genes.intersection(hci_mut_genes)
 
-        cmp_mut = cmp_mut[cmp_mut["gene_symbol"].isin(common_genes)]
-        hci_mut = hci_mut[hci_mut["gene_symbol"].isin(common_genes)]
-
         cols = ["model_id", "gene_symbol", "chrom", "pos", "protein_mutation"]
-        mut_df = pd.concat([cmp_mut[cols], hci_mut[cols]])
+        cmp_mut_data = cmp_data.mut[cmp_data.mut["gene_symbol"].isin(common_genes)]
+        hci_mut_data = hci_data.mut[hci_data.mut["gene_symbol"].isin(common_genes)]
+        cmp_data.mut = cmp_mut_data[cols]
+        hci_data.mut = hci_mut_data[cols]
+        # mut_data = pd.concat([cmp_mut_data[cols], hci_mut_data[cols]])
 
     # 2. harmonize the drug response data
-    mapper = dict(zip(gdsc_drug_meta.pubchem_id, gdsc_drug_meta.drug_name))
+    mapper = dict(zip(gdsc_data.meta["pubchem_id"], gdsc_data.meta["drug_name"]))
     func = lambda r: mapper.get(r["pubchem_id"], r["drug_name"])
 
-    old_names = hci_drug_meta["drug_name"].copy()
-    hci_drug_meta["drug_name"] = hci_drug_meta.apply(func, axis=1)
+    old_names = hci_data.drug_meta["drug_name"].copy()
+    hci_data.drug_meta["drug_name"] = hci_data.drug_meta.apply(func, axis=1)
 
-    mapper = dict(zip(old_names, hci_drug_meta["drug_name"]))
-    hci_resp["drug_name"] = hci_resp["drug_name"].map(mapper)
+    mapper = dict(zip(old_names, hci_data.drug_meta["drug_name"]))
+    hci_data.resp["drug_name"] = hci_data.resp["drug_name"].map(mapper)
 
     if not include_all_hci_drugs:
-        hci_drug_meta = hci_drug_meta[
-            hci_drug_meta.pubchem_id.isin(gdsc_drug_meta["pubchem_id"])
+        hci_data.drug_meta = hci_data.drug_meta[
+            hci_data.drug_meta["pubchem_id"].isin(gdsc_data.meta["pubchem_id"])
         ]
-        hci_resp = hci_resp[hci_resp["drug_name"].isin(gdsc_drug_meta["drug_name"])]
+        hci_data.resp = hci_data.resp[
+            hci_data.resp["drug_name"].isin(gdsc_data.meta["drug_name"])
+        ]
 
-    cols = ["model_id", "drug_name", "ln_ic50"]
-    resp_df = pd.concat([gdsc_resp[cols], hci_resp[cols]])
+    gdsc_data.resp = gdsc_data.resp[["model_id", "drug_name", "ln_ic50"]]
+    hci_data.resp = hci_data.resp[["model_id", "drug_name", "ln_ic50"]]
+    # resp_df = pd.concat([gdsc_resp[cols], hci_resp[cols]])
 
-    cols = ["drug_name", "pubchem_id"]
-    drug_meta = pd.concat([gdsc_drug_meta[cols], hci_drug_meta[cols]])
-    drug_meta = drug_meta.drop_duplicates()
+    gdsc_data.meta = gdsc_data.meta[["drug_name", "pubchem_id"]]
+    hci_data.drug_meta = hci_data.drug_meta[["drug_name", "pubchem_id"]]
 
-    return exp_df, resp_df, sample_meta, drug_meta, mut_df
+    # drug_meta = pd.concat([gdsc_drug_meta[cols], hci_drug_meta[cols]])
+    # drug_meta = drug_meta.drop_duplicates()
+    # NOTE: remember to drop duplicates when I concatenate the metadata
+
+    # TODO: now I need to update the make_dataset script to store
+    #   the data independently (for DeepCDR, I can concatenate and then separate)
+    # TODO: then I need to update the run_hci_xfer experiment to work with this
+
+    return cmp_data, hci_data, gdsc_data
 
 
 def harmonize_cmp_gdsc_tcga_data(
-    cmp_exp: pd.DataFrame,
-    tcga_exp: pd.DataFrame,
-    gdsc_resp: pd.DataFrame,
-    tcga_resp: pd.DataFrame,
-    cmp_sample_meta: pd.DataFrame,
-    tcga_sample_meta: pd.DataFrame,
-    gdsc_drug_meta: pd.DataFrame,
-) -> t.Tuple[
-    pd.DataFrame,
-    pd.DataFrame,
-    pd.DataFrame,
-    pd.DataFrame,
-    pd.DataFrame,
-    pd.DataFrame,
-    pd.DataFrame,
-    pd.DataFrame,
-]:
+    cmp_data: CMPData, tcga_data: TCGAData, gdsc_data: GDSCData
+) -> t.Tuple[CMPData, TCGAData, GDSCData]:
     """Harmonizes the Cell Model Passports, GDSC and TCGA data."""
-    cmp_sample_meta["domain"] = "CELL"
-    tcga_sample_meta["domain"] = "PATIENT"
+
+    cmp_data.meta["domain"] = "CELL"
+    tcga_data.cell_meta["domain"] = "PATIENT"
 
     cols = ["model_id", "cancer_type", "domain"]
-    cmp_sample_meta = cmp_sample_meta[cols]
-    tcga_sample_meta = tcga_sample_meta[cols]
+    cmp_data.meta = cmp_data.meta[cols]
+    tcga_data.cell_meta = tcga_data.cell_meta[cols]
 
-    common_genes = cmp_exp.columns.intersection(tcga_exp.columns)
-    cmp_exp = cmp_exp[common_genes.sort_values()]
-    tcga_exp = tcga_exp[common_genes.sort_values()]
+    common_genes = cmp_data.exp.columns.intersection(tcga_data.exp.columns)
+    cmp_data.exp = cmp_data.exp[common_genes.sort_values()]
+    tcga_data.exp = tcga_data.exp[common_genes.sort_values()]
 
-    tcga_drugs = set(tcga_resp["drug_name"])
-    common_drugs = tcga_drugs.intersection(gdsc_drug_meta["drug_name"])
-    tcga_resp = tcga_resp[tcga_resp["drug_name"].isin(common_drugs)]
+    tcga_drugs = set(tcga_data.resp["drug_name"])
+    gdsc_drugs = set(gdsc_data.meta["drug_name"])
+    common_drugs = set.intersection(tcga_drugs, gdsc_drugs)
 
-    tcga_drug_meta = gdsc_drug_meta[
-        gdsc_drug_meta["drug_name"].isin(common_drugs)
-    ].copy()
+    tcga_data.resp = tcga_data.resp[tcga_data.resp["drug_name"].isin(common_drugs)]
+    tcga_drug_meta = gdsc_data.meta[gdsc_data.meta["drug_name"].isin(common_drugs)]
+    tcga_data.drug_meta = tcga_drug_meta.copy()
 
-    return (
-        cmp_exp,
-        tcga_exp,
-        gdsc_resp,
-        tcga_resp,
-        cmp_sample_meta,
-        tcga_sample_meta,
-        gdsc_drug_meta,
-        tcga_drug_meta,
-    )
+    return cmp_data, tcga_data, gdsc_data

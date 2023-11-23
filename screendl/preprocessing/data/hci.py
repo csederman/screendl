@@ -4,82 +4,100 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pandas._typing as pdt
 import typing as t
 
+from dataclasses import dataclass
 from pathlib import Path
+
+from ..utils import intersect_columns, filter_by_value_counts
+
+StrOrPath = t.Union[str, Path]
+FilePathOrBuff = t.Union[pdt.FilePath, pdt.ReadCsvBuffer[bytes], pdt.ReadCsvBuffer[str]]
+
+
+@dataclass(repr=False)
+class HCIData:
+    """Container for HCI data sources."""
+
+    resp: pd.DataFrame
+    cell_meta: pd.DataFrame
+    drug_meta: pd.DataFrame
+    exp: pd.DataFrame
+    mut: pd.DataFrame | None = None
+
+    # TODO: add save method
+    # TODO: create a DEFAULT_PROCESSED_FILE_NAMES dict like:
+    #   {
+    #       "meta_samples": "MetaSampleAnnotations.csv",
+    #       "meta_drugs": "MetaDrugAnnotations.csv",
+    #       "omics_exp": "OmicsGeneExpression.csv",
+    #       ...
+    #   }
+    #   -> I can then use this dict to grab the file names
 
 
 def load_hci_data(
-    exp_path: str | Path,
-    resp_path: str | Path,
-    pdmc_meta_path: str | Path,
-    drug_meta_path: str | Path,
-    mut_path: str | Path | None = None,
-) -> t.Tuple[
-    pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame | None
-]:
+    exp_path: FilePathOrBuff,
+    resp_path: FilePathOrBuff,
+    pdmc_meta_path: FilePathOrBuff,
+    drug_meta_path: FilePathOrBuff,
+    mut_path: FilePathOrBuff | None = None,
+) -> HCIData:
     """Loads the raw HCI PDMC data."""
-    exp_df = pd.read_csv(exp_path, index_col=0)
-    mut_df = None if mut_path is None else pd.read_csv(mut_path)
-
-    resp_df = pd.read_csv(resp_path)
-
-    pdmc_meta = pd.read_csv(pdmc_meta_path)
+    cell_meta = pd.read_csv(pdmc_meta_path)
     drug_meta = pd.read_csv(drug_meta_path, dtype={"pubchem_id": str})
 
-    return exp_df, resp_df, pdmc_meta, drug_meta, mut_df
+    resp_data = pd.read_csv(resp_path)
+
+    exp_data = pd.read_csv(exp_path, index_col=0)
+    mut_data = None if mut_path is None else pd.read_csv(mut_path)
+
+    return HCIData(resp_data, cell_meta, drug_meta, exp_data, mut_data)
 
 
 def harmonize_hci_data(
-    exp_df: pd.DataFrame,
-    resp_df: pd.DataFrame,
-    pdmc_meta: pd.DataFrame,
-    drug_meta: pd.DataFrame,
-    model_types: t.List[str],
-    mut_df: pd.DataFrame | None = None,
-    min_samples_per_drug: int | None = None,
-) -> t.Tuple[
-    pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame | None
-]:
+    data: HCIData, model_types: t.List[str], min_samples_per_drug: int | None = None
+) -> HCIData:
     """Cleans and harmonizes the raw HCI data."""
+    resp = data.resp
+    exp = data.exp
+    mut = data.mut
+    drug_meta = data.drug_meta
+    cell_meta = data.cell_meta
 
     # only include drugs with PubCHEM ids
     drug_meta = drug_meta.dropna(subset="pubchem_id").drop_duplicates()
-
-    resp_df["ln_ic50"] = np.log(resp_df["IC50"])
-    resp_df = resp_df[resp_df["drug_name"].isin(drug_meta["drug_name"])]
+    resp["ln_ic50"] = np.log(resp["IC50"])
+    resp = resp[resp["drug_name"].isin(drug_meta["drug_name"])]
 
     # only consider specified model types (e.g. PDX vs PDO)
-    pdmc_meta = pdmc_meta[pdmc_meta["model_type"].isin(model_types)]
+    cell_meta = cell_meta[cell_meta["model_type"].isin(model_types)]
 
-    if mut_df is not None:
-        pdmc_meta = pdmc_meta[pdmc_meta["has_matching_wes"] == True]
+    if mut is not None:
+        cell_meta = cell_meta[cell_meta["has_matching_wes"] == True]
 
-    common_models = set(resp_df["model_id"])
-    common_models = common_models.intersection(pdmc_meta["model_id"])
-    common_models = sorted(list(common_models))
+    common_samples = intersect_columns(resp, cell_meta, "model_id")
+    common_samples = sorted(list(common_samples))
 
-    pdmc_meta = pdmc_meta[pdmc_meta["model_id"].isin(common_models)]
-    pdmc_meta = pdmc_meta.drop_duplicates(subset="model_id")
+    cell_meta = cell_meta[cell_meta["model_id"].isin(common_samples)]
+    cell_meta = cell_meta.drop_duplicates("model_id")
 
-    mapper = dict(zip(pdmc_meta["sample_id_rna"], pdmc_meta["model_id"]))
-    exp_df = exp_df[exp_df.index.isin(mapper)]
-    exp_df.index = exp_df.index.map(mapper)
+    mapper = dict(zip(cell_meta["sample_id_rna"], cell_meta["model_id"]))
+    exp = exp[exp.index.isin(mapper)]
+    exp.index = exp.index.map(mapper)
 
-    if mut_df is not None:
-        mapper = dict(zip(pdmc_meta["sample_id_wes"], pdmc_meta["model_id"]))
-        mut_df["model_id"] = mut_df["sample_barcode"].map(mapper)
-        mut_df = mut_df[mut_df["sample_barcode"].isin(mapper)]
-        mut_df = mut_df.drop(columns="sample_barcode")
+    if mut is not None:
+        mapper = dict(zip(cell_meta["sample_id_wes"], cell_meta["model_id"]))
+        mut["model_id"] = mut["sample_barcode"].map(mapper)
+        mut = mut[mut["sample_barcode"].isin(mapper)].drop(columns="sample_barcode")
 
-    resp_df = resp_df[resp_df["model_id"].isin(common_models)]
-    resp_df = resp_df.drop_duplicates(subset=["model_id", "drug_name"])
+    resp = resp[resp["model_id"].isin(common_samples)]
+    resp = resp.drop_duplicates(["model_id", "drug_name"])
 
     if min_samples_per_drug is not None:
-        drug_counts = resp_df["drug_name"].value_counts()
-        keep_drugs = drug_counts[drug_counts >= min_samples_per_drug].index
-        resp_df = resp_df[resp_df["drug_name"].isin(keep_drugs)]
+        resp = filter_by_value_counts(resp, "drug_name", min_samples_per_drug)
 
-    drug_meta = drug_meta[drug_meta["drug_name"].isin(resp_df["drug_name"])]
+    drug_meta = drug_meta[drug_meta["drug_name"].isin(resp["drug_name"])]
 
-    return exp_df, resp_df, pdmc_meta, drug_meta, mut_df
+    return HCIData(resp, cell_meta, drug_meta, exp, mut)

@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import io
+import requests
+
 import numpy as np
 import pandas as pd
+import pandas._typing as pdt
 import typing as t
 
-from pathlib import Path
+from dataclasses import dataclass
 from cdrpy.core.utils import is_real_iterable
 
 
@@ -31,63 +35,79 @@ INVALID_PUBCHEM_IDS = ("several", "none", "None")
 INVALID_RESPONSE_VALUES = (np.nan, np.inf, -np.inf)
 
 
+FilePathOrBuff = t.Union[pdt.FilePath, pdt.ReadCsvBuffer[bytes], pdt.ReadCsvBuffer[str]]
+
+
+@dataclass(repr=False)
+class GDSCData:
+    """Container for GDSC data sources."""
+
+    resp: pd.DataFrame
+    meta: pd.DataFrame
+
+
 def _fix_pubchem_id(id_: t.Any) -> str | None:
-    """Fixes GDSC PubCHEM ids."""
+    """Fix GDSC PubCHEM identifiers."""
     if not isinstance(id_, str) or id_ in INVALID_PUBCHEM_IDS:
         return None
     return id_.split(",")[0]
 
 
+def fetch_gdsc_drug_info() -> io.StringIO:
+    """Downloads GDSC drug annotations."""
+    url = "https://www.cancerrxgene.org/api/compounds"
+    with requests.Session() as s:
+        response = s.get(url, params={"list": "all", "export": "csv"})
+    return io.StringIO(response.content.decode())
+
+
 def load_gdsc_data(
-    resp_path: str | Path | t.Iterable[str | Path], meta_path: str | Path
-) -> t.Tuple[pd.DataFrame, pd.DataFrame]:
+    resp_path: FilePathOrBuff | t.Iterable[FilePathOrBuff], meta_path: FilePathOrBuff
+) -> GDSCData:
     """Loads the raw GDSCv2 data.
 
     Parameters
     ----------
-        resp_path: Path (or a list of paths) to the raw drug response data.
+        resp_path: Path (or an iterable of paths) to the raw drug response data.
         meta_path: Path to the raw drug annotations.
 
     Returns
     -------
-        A tuple of (resp_df, meta_df) `pd.DataFrame` instances.
+        A GDSCData object.
     """
     if not is_real_iterable(resp_path):
         resp_path = [resp_path]
 
-    resp_df: pd.DataFrame = pd.concat(map(pd.read_excel, resp_path))
-    meta_df = pd.read_csv(meta_path, dtype={"PubCHEM": str, "Drug Id": int})
+    resp_data: pd.DataFrame = pd.concat(map(pd.read_excel, resp_path))
+    meta_data = pd.read_csv(meta_path, dtype={"PubCHEM": str, "Drug Id": int})
 
     # cleanup column names
-    meta_df.columns = [c.strip() for c in meta_df.columns]
-    meta_df = meta_df.rename(columns=DRUG_INFO_COLUMN_MAPPER)
-    resp_df = resp_df.rename(columns=DRUG_RESP_COLUMN_MAPPER)
+    meta_data.columns = [c.strip() for c in meta_data.columns]
+    meta_data = meta_data.rename(columns=DRUG_INFO_COLUMN_MAPPER)
+    resp_data = resp_data.rename(columns=DRUG_RESP_COLUMN_MAPPER)
 
-    return resp_df, meta_df
+    return GDSCData(resp_data, meta_data)
 
 
-def harmonize_gdsc_data(
-    resp_df: pd.DataFrame, meta_df: pd.DataFrame
-) -> t.Tuple[pd.DataFrame, pd.DataFrame]:
+def harmonize_gdsc_data(data: GDSCData) -> GDSCData:
     """Harmonizes the GDSCv2 data.
 
     Parameters
     ----------
-        resp_df: The raw drug response data.
-        meta_df: The raw drug annotations.
+        gdsc_data: The raw GDSCData object.
 
     Returns
     -------
-        A tuple of (resp_df, meta_df) `pd.DataFrame` instances.
+        The harmonized GDSCData object.
     """
-    screened_drugs = set(resp_df["gdsc_drug_id"])
+    screened_drugs = set(data.resp["gdsc_drug_id"])
 
-    meta_df["pubchem_id"] = meta_df["pubchem_id"].map(_fix_pubchem_id)
-    meta_df = meta_df[meta_df["gdsc_drug_id"].isin(screened_drugs)]
+    data.meta["pubchem_id"] = data.meta["pubchem_id"].map(_fix_pubchem_id)
+    data.meta = data.meta[data.meta["gdsc_drug_id"].isin(screened_drugs)]
 
     # remove duplicate entries (prefer GDSC2 if available)
-    meta_df = (
-        meta_df.dropna(subset="pubchem_id")
+    data.meta = (
+        data.meta.dropna(subset="pubchem_id")
         .sort_values(["pubchem_id", "dataset", "number of cell lines"])
         .drop_duplicates("pubchem_id", keep="last")
         .sort_values(["drug_name", "dataset", "number of cell lines"])
@@ -95,10 +115,10 @@ def harmonize_gdsc_data(
     )
 
     # filter the responses by the meta data
-    resp_df = resp_df.merge(
-        meta_df[["dataset", "gdsc_drug_id"]],
+    data.resp = data.resp.merge(
+        data.meta[["dataset", "gdsc_drug_id"]],
         on=["dataset", "gdsc_drug_id"],
         how="inner",
     )
 
-    return resp_df, meta_df
+    return data
