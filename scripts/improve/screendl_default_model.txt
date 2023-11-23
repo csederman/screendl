@@ -2,9 +2,8 @@
 model_name = "screendl"
 
 # split
-id = 1
-type = "tumor_blind"
-
+split_id = 1
+split_type = "tumor_blind"
 
 # hparams
 epochs = 100
