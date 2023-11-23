@@ -32,28 +32,20 @@ def make_dataset(cfg: DictConfig) -> t.Tuple[cmp.CMPData, gdsc.GDSCData]:
     params = cfg.dataset.params
 
     log.info("Loading Cell Model Passports data...")
-    cmp_data = cmp.load_cmp_data(
+    cmp_data = cmp.load_and_clean_cmp_data(
         exp_path=paths.cell_exp,
         meta_path=paths.cell_info,
         cnv_path=paths.cell_cnv,
         vcf_dir=paths.cell_vcf,
-    )
-
-    log.info("Harmonizing Cell Model Passports data...")
-    cmp_data = cmp.harmonize_cmp_data(
-        cmp_data,
         min_cells_per_cancer_type=params.min_cells_per_cancer_type,
         required_info_columns=params.required_info_columns,
         cancer_type_blacklist=params.cancer_type_blacklist,
     )
 
-    log.info("Loading GDSC response data...")
-    gdsc_data = gdsc.load_gdsc_data(
+    log.info("Loading GDSC data...")
+    gdsc_data = gdsc.load_and_clean_gdsc_data(
         resp_path=paths.drug_resp, meta_path=paths.drug_info
     )
-
-    log.info("Harmonizing GDSC response data...")
-    gdsc_data = gdsc.harmonize_gdsc_data(gdsc_data)
 
     log.info("Harmonizing GDSC and Cell Model Passports...")
     cmp_data, gdsc_data = harmonize_cmp_gdsc_data(cmp_data, gdsc_data)
@@ -79,7 +71,6 @@ def make_dataset(cfg: DictConfig) -> t.Tuple[cmp.CMPData, gdsc.GDSCData]:
 
         cmp_data.meta.to_csv(out_dir / "CellLineAnnotations.csv", index=False)
         cmp_data.exp.to_csv(out_dir / "OmicsGeneExpressionTPM.csv")
-
         if cmp_data.cnv is not None:
             cmp_data.cnv.to_csv(out_dir / "OmicsTotalCopyNumber.csv")
         if cmp_data.mut is not None:
