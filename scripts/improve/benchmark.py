@@ -12,6 +12,7 @@ from tensorflow.keras import backend as K  # pyright: ignore[reportMissingImport
 
 
 additional_definitions = [
+    # hyperparameters
     {
         "name": "activation",
         "type": str,
@@ -47,6 +48,17 @@ additional_definitions = [
         "name": "mol_hidden_dims",
         "type": t.List[str],
         "default": [256, 128, 64],
+    },
+    # train/val/test split
+    {
+        "name": "split_id",
+        "type": int,
+        "default": 1,
+    },
+    {
+        "name": "split_type",
+        "type": str,
+        "default": "tumor_blind",
     },
 ]
 required_definitions = ["epochs", "batch_size", "learning_rate"]

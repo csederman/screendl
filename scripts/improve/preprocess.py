@@ -10,6 +10,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 import io
 import sys
 import argparse
+import pickle
 import requests
 import zipfile
 
@@ -34,8 +35,18 @@ CMP_META_PATH = "https://cog.sanger.ac.uk/cmp/download/model_list_20230923.csv"
 GDSC_SCREEN_PATH = "https://cog.sanger.ac.uk/cancerrxgene/GDSC_release8.5/GDSC2_fitted_dose_response_27Oct23.xlsx"
 
 
-CMPData = namedtuple("CMPData", ["exp", "meta"])
-GDSCData = namedtuple("GDSCData", ["screen", "meta"])
+class CMPData(t.NamedTuple):
+    """Container for Cell Model Passports data sources."""
+
+    exp: pd.DataFrame
+    meta: pd.DataFrame
+
+
+class GDSCData(t.NamedTuple):
+    """Container for GDSC data sources."""
+
+    resp: pd.DataFrame
+    meta: pd.DataFrame
 
 
 def fetch_gdsc_drug_info() -> io.StringIO:
@@ -181,6 +192,15 @@ def preprocess(args: t.List[str]) -> None:
     )
 
     D.save(os.path.join(out_root, f"{D.name}.h5"))
+
+    split_dir = os.path.join(out_root, "splits", "tumor_blind")
+    os.makedirs(split_dir, exist_ok=True)
+
+    split_gen = make_splits(D.cell_meta.reset_index(), D.obs)
+    for i, split_dict in enumerate(split_gen, 1):
+        split_path = os.path.join(split_dir, f"fold_{i}.pkl")
+        with open(split_path, "wb") as fh:
+            pickle.dump(split_dict, fh)
 
 
 if __name__ == "__main__":
