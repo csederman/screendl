@@ -37,7 +37,7 @@ def load_tcga_data(
     return TCGAData(resp_data, cell_meta, exp_data)
 
 
-def harmonize_tcga_data(
+def clean_tcga_data(
     data: TCGAData,
     min_samples_per_drug: int | None = None,
 ) -> TCGAData:
@@ -56,3 +56,15 @@ def harmonize_tcga_data(
         data.resp = filter_by_value_counts(data.resp, "drug_name", min_samples_per_drug)
 
     return data
+
+
+def load_and_clean_tcga_data(
+    exp_path: FilePathOrBuff,
+    resp_path: FilePathOrBuff,
+    meta_path: FilePathOrBuff,
+    min_samples_per_drug: int | None = None,
+) -> TCGAData:
+    """Loads and cleans the raw TCGA data."""
+    tcga_data = load_tcga_data(exp_path, resp_path, meta_path)
+    tcga_data = clean_tcga_data(tcga_data, min_samples_per_drug)
+    return tcga_data

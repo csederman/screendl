@@ -2,7 +2,7 @@ _root_: "/scratch/ucgd/lustre-work/marth/u0871891/datastore"
 
 dataset:
   dir: "${_root_}/datasets/${dataset.name}"
-  name: CellModelPassportsGDSCv2HCI
+  name: CellModelPassportsGDSCv2HCIExpressionOnly
   save: True
   paths:
     gdsc:

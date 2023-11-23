@@ -62,7 +62,8 @@ def fetch_gdsc_drug_info() -> io.StringIO:
 
 
 def load_gdsc_data(
-    resp_path: FilePathOrBuff | t.Iterable[FilePathOrBuff], meta_path: FilePathOrBuff
+    resp_path: FilePathOrBuff | t.Iterable[FilePathOrBuff],
+    meta_path: FilePathOrBuff,
 ) -> GDSCData:
     """Loads the raw GDSCv2 data.
 
@@ -89,7 +90,7 @@ def load_gdsc_data(
     return GDSCData(resp_data, meta_data)
 
 
-def harmonize_gdsc_data(data: GDSCData) -> GDSCData:
+def clean_gdsc_data(data: GDSCData) -> GDSCData:
     """Harmonizes the GDSCv2 data.
 
     Parameters
@@ -122,3 +123,23 @@ def harmonize_gdsc_data(data: GDSCData) -> GDSCData:
     )
 
     return data
+
+
+def load_and_clean_gdsc_data(
+    resp_path: FilePathOrBuff | t.Iterable[FilePathOrBuff],
+    meta_path: FilePathOrBuff,
+) -> GDSCData:
+    """Loads and cleans the GDSC data.
+
+    Parameters
+    ----------
+        resp_path: Path (or an iterable of paths) to the raw drug response data.
+        meta_path: Path to the raw drug annotations.
+
+    Returns
+    -------
+        The cleaned GDSCData object.
+    """
+    gdsc_data = load_gdsc_data(resp_path, meta_path)
+    gdsc_data = clean_gdsc_data(gdsc_data)
+    return gdsc_data

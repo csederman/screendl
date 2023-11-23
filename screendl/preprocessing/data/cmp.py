@@ -153,8 +153,7 @@ def load_cmp_data(
 
     Returns
     -------
-        A tuple (exp_df, meta_df, cnv_df, mut_df) of `pd.DataFrame`
-            instances.
+        The raw CMPData object.
     """
     if isinstance(vcf_dir, str):
         vcf_dir = Path(vcf_dir)
@@ -168,7 +167,7 @@ def load_cmp_data(
     return CMPData(exp_data, meta_data, cnv_data, mut_data)
 
 
-def harmonize_cmp_data(
+def clean_cmp_data(
     data: CMPData,
     min_cells_per_cancer_type: int = 20,
     required_info_columns: t.List[str] | None = None,
@@ -219,3 +218,38 @@ def harmonize_cmp_data(
         data.mut = data.mut.sort_values("model_id")
 
     return data
+
+
+def load_and_clean_cmp_data(
+    exp_path: FilePathOrBuff,
+    meta_path: FilePathOrBuff,
+    cnv_path: FilePathOrBuff | None = None,
+    vcf_dir: StrOrPath | None = None,
+    min_cells_per_cancer_type: int = 20,
+    required_info_columns: t.List[str] | None = None,
+    cancer_type_blacklist: t.List[str] | None = None,
+) -> CMPData:
+    """Loads and cleans the raw CMP data.
+
+    Parameters
+    ----------
+        exp_path: Path to the raw expression data.
+        meta_path: Path to the raw cell line metadata.
+        cnv_path: Path to the raw copy number data.
+        vcf_dir: Directory containing the WES VCF files.
+        min_cells_per_cancer_type: Min number of cell lines per cancer type.
+        required_info_columns: Required sample metadata columns.
+        cancer_type_blacklist: List of cancer types to exclued.
+
+    Returns
+    -------
+        The cleaned CMPData object.
+    """
+    cmp_data = load_cmp_data(exp_path, meta_path, cnv_path, vcf_dir)
+    cmp_data = clean_cmp_data(
+        cmp_data,
+        min_cells_per_cancer_type=min_cells_per_cancer_type,
+        required_info_columns=required_info_columns,
+        cancer_type_blacklist=cancer_type_blacklist,
+    )
+    return cmp_data

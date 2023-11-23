@@ -16,6 +16,9 @@ StrOrPath = t.Union[str, Path]
 FilePathOrBuff = t.Union[pdt.FilePath, pdt.ReadCsvBuffer[bytes], pdt.ReadCsvBuffer[str]]
 
 
+DEFAULT_MODEL_TYPES = ["pdx"]
+
+
 @dataclass(repr=False)
 class HCIData:
     """Container for HCI data sources."""
@@ -56,8 +59,10 @@ def load_hci_data(
     return HCIData(resp_data, cell_meta, drug_meta, exp_data, mut_data)
 
 
-def harmonize_hci_data(
-    data: HCIData, model_types: t.List[str], min_samples_per_drug: int | None = None
+def clean_hci_data(
+    data: HCIData,
+    model_types: t.List[str] | None = None,
+    min_samples_per_drug: int | None = None,
 ) -> HCIData:
     """Cleans and harmonizes the raw HCI data."""
     resp = data.resp
@@ -65,6 +70,9 @@ def harmonize_hci_data(
     mut = data.mut
     drug_meta = data.drug_meta
     cell_meta = data.cell_meta
+
+    if model_types is None:
+        model_types = DEFAULT_MODEL_TYPES
 
     # only include drugs with PubCHEM ids
     drug_meta = drug_meta.dropna(subset="pubchem_id").drop_duplicates()
@@ -101,3 +109,20 @@ def harmonize_hci_data(
     drug_meta = drug_meta[drug_meta["drug_name"].isin(resp["drug_name"])]
 
     return HCIData(resp, cell_meta, drug_meta, exp, mut)
+
+
+def load_and_clean_hci_data(
+    exp_path: FilePathOrBuff,
+    resp_path: FilePathOrBuff,
+    pdmc_meta_path: FilePathOrBuff,
+    drug_meta_path: FilePathOrBuff,
+    mut_path: FilePathOrBuff | None = None,
+    model_types: t.List[str] | None = None,
+    min_samples_per_drug: int | None = None,
+) -> HCIData:
+    """Loads and cleans the raw HCI data."""
+    hci_data = load_hci_data(
+        exp_path, resp_path, pdmc_meta_path, drug_meta_path, mut_path
+    )
+    hci_data = clean_hci_data(hci_data, model_types, min_samples_per_drug)
+    return hci_data

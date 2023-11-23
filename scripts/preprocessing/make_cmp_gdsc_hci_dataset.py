@@ -13,198 +13,123 @@ import logging
 import pickle
 
 import pandas as pd
-import numpy as np
+import typing as t
 
 from pathlib import Path
 from omegaconf import OmegaConf, DictConfig
 
+from screendl.preprocessing import splits, models
+from screendl.preprocessing.data import gdsc, cmp, hci, pubchem
 from screendl.preprocessing.data import (
-    load_cmp_data,
-    load_gdsc_data,
-    load_hci_data,
-    harmonize_cmp_data,
-    harmonize_gdsc_data,
-    harmonize_hci_data,
     harmonize_cmp_gdsc_data,
     harmonize_cmp_gdsc_hci_data,
-    fetch_pubchem_properties,
 )
-from screendl.preprocessing.models import (
-    generate_and_save_deepcdr_inputs,
-    generate_and_save_hidra_inputs,
-    generate_and_save_screendl_inputs,
-)
-from screendl.preprocessing.splits import kfold_split_generator
-
-
-logging.basicConfig(
-    format="[%(asctime)s][%(name)s][%(levelname)s] - %(message)s",
-    datefmt="%Y-%m-%d %I:%M:%S,%03d",
-    handlers=[logging.StreamHandler(sys.stdout)],
-)
-
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 
-def make_dataset(
-    cfg: DictConfig,
-) -> tuple[
-    pd.DataFrame,
-    pd.DataFrame,
-    pd.DataFrame,
-    pd.DataFrame,
-    pd.DataFrame | None,
-]:
+def make_dataset(cfg: DictConfig) -> t.Tuple[cmp.CMPData, gdsc.GDSCData, hci.HCIData]:
     """Cleans and harmonizes the data sources."""
     paths = cfg.dataset.paths
     params = cfg.dataset.params
 
     log.info("Loading Cell Model Passports data...")
-    cmp_cell_exp, cmp_cell_meta, _, cmp_cell_mut = load_cmp_data(
+    cmp_data = cmp.load_and_clean_cmp_data(
         exp_path=paths.cmp.exp,
         meta_path=paths.cmp.meta,
         vcf_dir=paths.cmp.vcf,
-    )
-
-    log.info("Harmonizing Cell Model Passports data...")
-    cmp_cell_exp, cmp_cell_meta, _, cmp_cell_mut = harmonize_cmp_data(
-        exp_df=cmp_cell_exp,
-        meta_df=cmp_cell_meta,
-        mut_df=cmp_cell_mut,
         min_cells_per_cancer_type=params.cmp.min_cells_per_cancer_type,
         required_info_columns=params.cmp.required_info_columns,
         cancer_type_blacklist=params.cmp.cancer_type_blacklist,
     )
 
     log.info("Loading GDSC response data...")
-    gdsc_drug_resp, gdsc_drug_meta = load_gdsc_data(
-        resp_path=paths.gdsc.resp, meta_path=paths.gdsc.meta
-    )
-
-    log.info("Harmonizing GDSC response data...")
-    gdsc_drug_resp, gdsc_drug_meta = harmonize_gdsc_data(
-        resp_df=gdsc_drug_resp, meta_df=gdsc_drug_meta
-    )
+    gdsc_data = gdsc.load_and_clean_gdsc_data(paths.gdsc.resp, paths.gdsc.meta)
 
     log.info("Harmonizing GDSC and Cell Model Passports...")
-    (
-        cmp_cell_exp,
-        gdsc_drug_resp,
-        cmp_cell_meta,
-        gdsc_drug_meta,
-        _,
-        cmp_cell_mut,
-    ) = harmonize_cmp_gdsc_data(
-        exp_df=cmp_cell_exp,
-        resp_df=gdsc_drug_resp,
-        cell_meta=cmp_cell_meta,
-        drug_meta=gdsc_drug_meta,
-        mut_df=cmp_cell_mut,
-    )
+    cmp_data, gdsc_data = harmonize_cmp_gdsc_data(cmp_data, gdsc_data)
 
     log.info("Loading HCI PDMC data...")
-    (
-        hci_pdmc_exp,
-        hci_drug_resp,
-        hci_pdmc_meta,
-        hci_drug_meta,
-        hci_pdmc_mut,
-    ) = load_hci_data(
+    hci_data = hci.load_and_clean_hci_data(
         exp_path=paths.hci.exp,
         resp_path=paths.hci.resp,
         pdmc_meta_path=paths.hci.pdmc_meta,
         drug_meta_path=paths.hci.drug_meta,
         mut_path=paths.hci.mut,
-    )
-
-    log.info("Harmonizing HCI PDMC data...")
-    (
-        hci_pdmc_exp,
-        hci_drug_resp,
-        hci_pdmc_meta,
-        hci_drug_meta,
-        hci_pdmc_mut,
-    ) = harmonize_hci_data(
-        exp_df=hci_pdmc_exp,
-        resp_df=hci_drug_resp,
-        pdmc_meta=hci_pdmc_meta,
-        drug_meta=hci_drug_meta,
         model_types=params.hci.pdmc_model_types,
-        mut_df=hci_pdmc_mut,
         min_samples_per_drug=params.hci.min_samples_per_drug,
     )
 
     log.info("Harmonizing GDSC, Cell Model Passports, and HCI data...")
-    (
-        exp_df,
-        resp_df,
-        sample_meta,
-        drug_meta,
-        mut_df,
-    ) = harmonize_cmp_gdsc_hci_data(
-        cmp_exp=cmp_cell_exp,
-        hci_exp=hci_pdmc_exp,
-        gdsc_resp=gdsc_drug_resp,
-        hci_resp=hci_drug_resp,
-        cmp_cell_meta=cmp_cell_meta,
-        hci_pdmc_meta=hci_pdmc_meta,
-        gdsc_drug_meta=gdsc_drug_meta,
-        hci_drug_meta=hci_drug_meta,
-        cmp_mut=cmp_cell_mut,
-        hci_mut=hci_pdmc_mut,
+    cmp_data, hci_data, gdsc_data = harmonize_cmp_gdsc_hci_data(
+        cmp_data,
+        hci_data,
+        gdsc_data,
         include_all_hci_drugs=params.hci.include_all_hci_drugs,
     )
 
     # query PubCHEM annotations
-    pubchem_cids = list(drug_meta["pubchem_id"])
-    pubchem_annots = fetch_pubchem_properties(pubchem_cids, paths.pubchem.cache)
-    pubchem_annots["CID"] = pubchem_annots["CID"].astype(str)
-    pubchem_annots = pubchem_annots.rename(columns={"CanonicalSMILES": "smiles"})
+    pchem_ids = set(gdsc_data.meta["pubchem_id"])
+    pchem_ids = list(pchem_ids.union(hci_data.drug_meta["pubchem_id"]))
+    pchem_props = pubchem.fetch_pubchem_properties(pchem_ids, paths.pubchem.cache)
+    pchem_props = pchem_props.rename(columns={"CanonicalSMILES": "smiles"})
+    pchem_props["CID"] = pchem_props["CID"].astype(str)
 
-    # merge in the PubCHEM annotations
-    drug_meta = drug_meta.merge(pubchem_annots, left_on="pubchem_id", right_on="CID")
+    gdsc_data.meta = gdsc_data.meta.merge(
+        pchem_props, left_on="pubchem_id", right_on="CID"
+    )
+    hci_data.drug_meta = hci_data.drug_meta.merge(
+        pchem_props, left_on="pubchem_id", right_on="CID"
+    )
 
     if cfg.dataset.save:
         log.info("Saving dataset...")
 
-        out_dir = Path(cfg.dataset.dir)
-        out_dir.mkdir(exist_ok=True, parents=True)
+        out_root = Path(cfg.dataset.dir)
 
-        exp_df.to_csv(out_dir / "OmicsGeneExpressionTPM.csv")
-        resp_df.to_csv(out_dir / "ScreenDoseResponse.csv", index=False)
-        sample_meta.to_csv(out_dir / "CellLineAnnotations.csv", index=False)
-        drug_meta.to_csv(out_dir / "DrugAnnotations.csv", index=False)
+        # save the cell line data
+        cell_subdir = out_root / "cell"
+        cell_subdir.mkdir(exist_ok=True, parents=True)
 
-        if mut_df is not None:
-            mut_df.to_csv(out_dir / "OmicsSomaticMutations.csv", index=False)
+        gdsc_data.meta.to_csv(cell_subdir / "DrugAnnotations.csv", index=False)
+        gdsc_data.resp.to_csv(cell_subdir / "ScreenDoseResponse.csv", index=False)
 
-    return exp_df, resp_df, sample_meta, drug_meta, mut_df
+        cmp_data.meta.to_csv(cell_subdir / "CellLineAnnotations.csv", index=False)
+        cmp_data.exp.to_csv(cell_subdir / "OmicsGeneExpressionTPM.csv")
+        if cmp_data.mut is not None:
+            cmp_data.mut.to_csv(cell_subdir / "OmicsSomaticMutations.csv", index=False)
+
+        # save the pdmc data
+        pdmc_subdir = out_root / "pdmc"
+        pdmc_subdir.mkdir(exist_ok=True, parents=True)
+
+        hci_data.drug_meta.to_csv(pdmc_subdir / "DrugAnnotations.csv", index=False)
+        hci_data.cell_meta.to_csv(pdmc_subdir / "CellLineAnnotations.csv", index=False)
+        hci_data.resp.to_csv(pdmc_subdir / "ScreenDoseResponse.csv", index=False)
+        hci_data.exp.to_csv(pdmc_subdir / "OmicsGeneExpressionTPM.csv")
+        if hci_data.mut is not None:
+            hci_data.mut.to_csv(pdmc_subdir / "OmicsSomaticMutations.csv", index=False)
+
+    return cmp_data, gdsc_data, hci_data
 
 
-def make_labels(cfg: DictConfig, resp_df: pd.DataFrame) -> pd.DataFrame:
+def make_labels(cfg: DictConfig, resp_data: pd.DataFrame) -> pd.DataFrame:
     """Creates the target labels."""
-    nan_values = [np.inf, -np.inf, np.nan]
-    resp_df = resp_df[~resp_df["ln_ic50"].isin(nan_values)]
-    resp_df = resp_df.dropna(subset="ln_ic50")
-    resp_df["id"] = range(resp_df.shape[0])
-
-    resp_df = resp_df[["id", "model_id", "drug_name", "ln_ic50"]]
-    resp_df = resp_df.rename(
-        columns={
-            "model_id": "cell_id",
-            "drug_name": "drug_id",
-            "ln_ic50": "label",
-        }
-    )
-
     out_dir = Path(cfg.inputs.dir)
     out_dir.mkdir(exist_ok=True, parents=True)
 
-    resp_df.to_csv(out_dir / "LabelsLogIC50.csv", index=False)
+    col_map = {"model_id": "cell_id", "drug_name": "drug_id", "ln_ic50": "label"}
+    resp_data_valid = resp_data[
+        ~resp_data["ln_ic50"].isin(gdsc.INVALID_RESPONSE_VALUES)
+    ]
+    resp_data_valid["id"] = range(resp_data_valid.shape[0])
+    resp_data_valid = resp_data_valid[["id", *col_map]].rename(columns=col_map)
 
-    return resp_df
+    # save the results
+    resp_data_valid.to_csv(out_dir / "LabelsLogIC50.csv", index=False)
+
+    return resp_data_valid
 
 
 def make_splits(
@@ -217,12 +142,12 @@ def make_splits(
     out_dir.mkdir(exist_ok=True, parents=True)
 
     cell_sample_meta = sample_meta[sample_meta["domain"] == "CELL"]
-    pdmc_sample_ids = sample_meta[sample_meta["domain"] == "PDMC"]["model_id"]
+    pdmc_sample_ids = sample_meta[sample_meta["domain"] == "PDMC"]["cell_id"]
 
-    cell_sample_ids = cell_sample_meta["model_id"]
+    cell_sample_ids = cell_sample_meta["cell_id"]
     cell_sample_groups = cell_sample_meta["cancer_type"]
 
-    split_gen = kfold_split_generator(
+    split_gen = splits.kfold_split_generator(
         cell_sample_ids,
         cell_sample_groups,
         n_splits=params.n_splits,
@@ -250,67 +175,67 @@ def make_splits(
 
 
 def make_meta(
-    cfg: DictConfig, sample_meta: pd.DataFrame, drug_meta: pd.DataFrame
-) -> None:
+    cfg: DictConfig, cell_meta: pd.DataFrame, drug_meta: pd.DataFrame
+) -> t.Tuple[pd.DataFrame, pd.DataFrame]:
     """Creates metadata inputs."""
     out_root = Path(cfg.inputs.dir)
     out_root.mkdir(exist_ok=True, parents=True)
 
     # generate metadata inputs
     cols = ["model_id", "cancer_type", "model_type", "domain"]
-    sample_meta_feat = sample_meta[cols].set_index("model_id")
-    sample_meta_feat = sample_meta_feat.rename_axis(index="cell_id")
+    cell_meta = cell_meta[cols].set_index("model_id").rename_axis(index="cell_id")
 
     cols = ["drug_name", "pubchem_id", "smiles"]
-    drug_meta_feat = drug_meta[cols].set_index("drug_name")
-    drug_meta_feat = drug_meta_feat.rename_axis(index="drug_id")
+    drug_meta = drug_meta[cols].set_index("drug_name").rename_axis(index="drug_id")
 
-    sample_meta_feat.to_csv(out_root / "MetaSampleAnnotations.csv")
-    drug_meta_feat.to_csv(out_root / "MetaDrugAnnotations.csv")
+    cell_meta.to_csv(out_root / "MetaSampleAnnotations.csv")
+    drug_meta.to_csv(out_root / "MetaDrugAnnotations.csv")
+
+    return cell_meta, drug_meta
 
 
 def make_inputs(
     cfg: DictConfig,
-    exp_df: pd.DataFrame,
-    sample_meta: pd.DataFrame,
+    exp_data: pd.DataFrame,
+    cell_meta: pd.DataFrame,
     drug_meta: pd.DataFrame,
-    mut_df: pd.DataFrame | None = None,
+    mut_data: pd.DataFrame | None = None,
 ) -> None:
     """Creates model inputs."""
     out_root = Path(cfg.inputs.dir)
     out_root.mkdir(exist_ok=True, parents=True)
 
     if "DeepCDR" in cfg.inputs.include:
-        if mut_df is None:
+        if mut_data is None:
             log.warning("Skipping DeepCDR inputs (no mutation data provided)")
         else:
             log.info("Generating DeepCDR inputs...")
-            generate_and_save_deepcdr_inputs(
+            models.generate_and_save_deepcdr_inputs(
                 cfg.inputs.deepcdr,
                 out_dir=out_root / "DeepCDR",
-                exp_df=exp_df,
-                mut_df=mut_df,
+                exp_df=exp_data,
+                mut_df=mut_data,
                 drug_meta=drug_meta,
             )
 
     if "HiDRA" in cfg.inputs.include:
         log.info("Generating HiDRA inputs...")
-        generate_and_save_hidra_inputs(
+        models.generate_and_save_hidra_inputs(
             cfg.inputs.hidra,
             out_dir=out_root / "HiDRA",
-            exp_df=exp_df,
+            exp_df=exp_data,
             drug_meta=drug_meta,
         )
 
     if "ScreenDL" in cfg.inputs.include:
         log.info("Generating ScreenDL inputs...")
-        generate_and_save_screendl_inputs(
+        models.generate_and_save_screendl_inputs(
             cfg.inputs.screendl,
             out_dir=out_root / "ScreenDL",
-            cell_meta=sample_meta,
+            cell_meta=cell_meta,
             drug_meta=drug_meta,
-            exp_df=exp_df,
-            mut_df=mut_df,
+            exp_df=exp_data,
+            mut_df=mut_data,
         )
 
 
@@ -327,20 +252,37 @@ def cli(config_path: str) -> None:
     cfg = OmegaConf.load(config_path)
 
     log.info("Building the dataset...")
-    exp_df, resp_df, sample_meta, drug_meta, mut_df = make_dataset(cfg)
+    cmp_data, gdsc_data, hci_data = make_dataset(cfg)
 
-    log.info("Generating labels...")
-    resp_df = make_labels(cfg, resp_df)
+    # combine the data sources
+    resp_data = pd.concat([gdsc_data.resp, hci_data.resp])
 
-    log.info("Generating folds...")
-    make_splits(cfg, resp_df, sample_meta)
+    drug_meta = pd.concat([gdsc_data.meta, hci_data.drug_meta]).drop_duplicates()
+    cell_meta = pd.concat([cmp_data.meta, hci_data.cell_meta])
 
-    log.info("Generating meta data...")
-    make_meta(cfg, sample_meta, drug_meta)
+    exp_data = pd.concat([cmp_data.exp, hci_data.exp])
+    mut_data = None
+    if cmp_data.mut is not None and hci_data.mut is not None:
+        mut_data = pd.concat([cmp_data.mut, hci_data.mut])
 
     log.info("Generating model inputs...")
-    make_inputs(cfg, exp_df, sample_meta, drug_meta, mut_df)
+    make_inputs(cfg, exp_data, cell_meta, drug_meta, mut_data)
+
+    log.info("Generating labels...")
+    labels = make_labels(cfg, resp_data)
+
+    log.info("Generating meta data...")
+    cell_meta, drug_meta = make_meta(cfg, cell_meta, drug_meta)
+
+    log.info("Generating folds...")
+    make_splits(cfg, labels, cell_meta.reset_index())
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        format="[%(asctime)s][%(name)s][%(levelname)s] - %(message)s",
+        datefmt="%Y-%m-%d %I:%M:%S,%03d",
+        handlers=[logging.StreamHandler(sys.stdout)],
+    )
+
     cli()

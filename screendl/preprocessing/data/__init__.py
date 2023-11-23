@@ -4,10 +4,22 @@ from __future__ import annotations
 
 import typing as t
 
-from .cmp import CMPData, load_cmp_data, harmonize_cmp_data
-from .gdsc import GDSCData, load_gdsc_data, harmonize_gdsc_data
-from .hci import HCIData, load_hci_data, harmonize_hci_data
-from .tcga import TCGAData, load_tcga_data, harmonize_tcga_data
+from .cmp import CMPData
+from .cmp import load_cmp_data
+from .cmp import clean_cmp_data
+from .cmp import load_and_clean_cmp_data
+from .gdsc import GDSCData
+from .gdsc import load_gdsc_data
+from .gdsc import clean_gdsc_data
+from .gdsc import load_and_clean_gdsc_data
+from .hci import HCIData
+from .hci import load_hci_data
+from .hci import clean_hci_data
+from .hci import load_and_clean_hci_data
+from .tcga import TCGAData
+from .tcga import load_tcga_data
+from .tcga import clean_tcga_data
+from .tcga import load_and_clean_tcga_data
 from .pubchem import fetch_pubchem_properties
 
 from ..utils import intersect_columns
@@ -18,13 +30,17 @@ __all__ = [
     "GDSCData",
     "HCIData",
     "load_cmp_data",
-    "harmonize_cmp_data",
+    "clean_cmp_data",
+    "load_and_clean_cmp_data",
     "load_gdsc_data",
-    "harmonize_gdsc_data",
+    "clean_gdsc_data",
+    "load_and_clean_gdsc_data",
     "load_hci_data",
-    "harmonize_hci_data",
+    "clean_hci_data",
+    "load_and_clean_hci_data",
     "load_tcga_data",
-    "harmonize_tcga_data",
+    "clean_tcga_data",
+    "load_and_clean_tcga_data",
     "harmonize_cmp_gdsc_data",
     "harmonize_cmp_gdsc_hci_data",
     "harmonize_cmp_gdsc_tcga_data",
@@ -71,25 +87,20 @@ def harmonize_cmp_gdsc_hci_data(
 ) -> t.Tuple[CMPData, HCIData, GDSCData]:
     """Harmonizes the Cell Model Passports, GDSC and HCI data."""
 
-    # FIXME: I should just return the original objects and the concatenate them later
-    #   instead of concatenating them now -> so return tuple(CMPDate, HCIData, GDSCData)
-
     # 1. harmonize the omics data
     cmp_data.meta["model_type"] = "cell line"
     cmp_data.meta["domain"] = "CELL"
-    hci_data.meta["domain"] = "PDMC"
+    hci_data.cell_meta["domain"] = "PDMC"
 
     cols = ["model_id", "cancer_type", "model_type", "domain"]
     cmp_data.meta = cmp_data.meta[cols]
     hci_data.cell_meta = hci_data.cell_meta[cols]
-    # cell_meta = pd.concat([cmp_data.meta[cols], hci_data.cell_meta[cols]])
 
     cmp_exp_genes = cmp_data.exp.columns
     hci_exp_genes = hci_data.exp.columns
     common_genes = cmp_exp_genes.intersection(hci_exp_genes).sort_values()
     cmp_data.exp = cmp_data.exp[common_genes]
     hci_data.exp = hci_data.exp[common_genes]
-    # exp_data = pd.concat([cmp_data.exp[common_genes], hci_data.exp[common_genes]])
 
     if cmp_data.mut is not None and hci_data.mut is not None:
         cmp_mut_genes = set(cmp_data.mut["gene_symbol"])
@@ -101,7 +112,6 @@ def harmonize_cmp_gdsc_hci_data(
         hci_mut_data = hci_data.mut[hci_data.mut["gene_symbol"].isin(common_genes)]
         cmp_data.mut = cmp_mut_data[cols]
         hci_data.mut = hci_mut_data[cols]
-        # mut_data = pd.concat([cmp_mut_data[cols], hci_mut_data[cols]])
 
     # 2. harmonize the drug response data
     mapper = dict(zip(gdsc_data.meta["pubchem_id"], gdsc_data.meta["drug_name"]))
@@ -123,18 +133,9 @@ def harmonize_cmp_gdsc_hci_data(
 
     gdsc_data.resp = gdsc_data.resp[["model_id", "drug_name", "ln_ic50"]]
     hci_data.resp = hci_data.resp[["model_id", "drug_name", "ln_ic50"]]
-    # resp_df = pd.concat([gdsc_resp[cols], hci_resp[cols]])
 
     gdsc_data.meta = gdsc_data.meta[["drug_name", "pubchem_id"]]
     hci_data.drug_meta = hci_data.drug_meta[["drug_name", "pubchem_id"]]
-
-    # drug_meta = pd.concat([gdsc_drug_meta[cols], hci_drug_meta[cols]])
-    # drug_meta = drug_meta.drop_duplicates()
-    # NOTE: remember to drop duplicates when I concatenate the metadata
-
-    # TODO: now I need to update the make_dataset script to store
-    #   the data independently (for DeepCDR, I can concatenate and then separate)
-    # TODO: then I need to update the run_hci_xfer experiment to work with this
 
     return cmp_data, hci_data, gdsc_data
 
