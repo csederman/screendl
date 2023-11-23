@@ -26,6 +26,7 @@ splits:
   types:
     - mixed
     - tumor_blind
+    - tumor_type_blind
   params:
     n_splits: 10
     seed: 1771
