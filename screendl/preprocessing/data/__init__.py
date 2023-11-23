@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pandas as pd
 import typing as t
 
 from .cmp import CMPData, load_cmp_data, harmonize_cmp_data
