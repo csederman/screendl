@@ -94,7 +94,7 @@ def generate_tumor_blind_splits(
     """
     out_dir.mkdir(exist_ok=True)
 
-    ids = cell_meta["model_id"]
+    ids = cell_meta["cell_id"]
     groups = cell_meta["cancer_type"]
 
     split_gen = kfold_split_generator(ids, groups, n_splits=n_splits, random_state=seed)
@@ -144,7 +144,7 @@ def generate_tumor_type_blind_splits(
         # generate a train/validation split
         other_cell_meta = cell_meta[cell_meta["cancer_type"] != ct]
         train_cells, val_cells = train_test_split(
-            other_cell_meta["model_id"],
+            other_cell_meta["cell_id"],
             test_size=0.1,
             stratify=other_cell_meta["cancer_type"],
             random_state=seed,
