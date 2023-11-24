@@ -12,14 +12,12 @@ dataset:
       meta: "${_root_}/raw/CellModelPassports/model_list_20230608.csv"
       exp: "${_root_}/raw/CellModelPassports/rnaseq_tpm_20220624.csv"
       vcf: "${_root_}/raw/CellModelPassports/mutations_wes_vcf_20221010"
-      # vcf: null
     hci:
       pdmc_meta: "${_root_}/processed/Welm/PDMCAnnotations.csv"
       drug_meta: "${_root_}/processed/Welm/DrugAnnotations.csv"
       resp: "${_root_}/processed/Welm/ScreenDoseResponse.csv"
       exp: "${_root_}/processed/Welm/OmicsGeneExpressionTPM.csv"
       mut: "${_root_}/processed/Welm/OmicsSomaticMutationsMAF.csv"
-      # mut: null
     pubchem:
       cache: "${_root_}/raw/PubCHEM/properties.json"
 
@@ -61,7 +59,6 @@ inputs:
       exp_gene_list: "${_root_}/processed/genelists/MiniCancerGenome1815Genes.pkl"
       cnv_gene_list: null
       mut_gene_list: "${_root_}/processed/genelists/MiniCancerGenome1815Genes.pkl"
-      # mut_gene_list: null
     params:
       exp_min_var_threshold: null
       exp_log_transform: true
