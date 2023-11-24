@@ -168,7 +168,7 @@ def preprocess(args: t.List[str]) -> None:
 
     # harmonize the raw data
     harmonized_data = harmonize_cmp_gdsc_data(
-        cmp_data.exp, gdsc_data.screen, cmp_data.meta, gdsc_data.meta
+        cmp_data.exp, gdsc_data.resp, cmp_data.meta, gdsc_data.meta
     )
     exp_data, screen_data, cell_meta, drug_meta, *_ = harmonized_data
 
