@@ -7,76 +7,163 @@ import os
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
+import json
 import pickle
 
+import numpy as np
 import typing as t
 import benchmark as bmk
 import tensorflow.keras.backend as K  # pyright: ignore[reportMissingImports]
 
-from types import SimpleNamespace
 from pathlib import Path
+from sklearn.preprocessing import StandardScaler
+from tensorflow import keras
+from types import SimpleNamespace
 
 from cdrpy.data import Dataset
+from cdrpy.feat.encoders import PandasEncoder
+from cdrpy.feat.transformers import GroupStandardScaler
+from cdrpy.mapper import BatchedResponseGenerator
+
 from screendl import model as screendl
 from screendl.utils import evaluation as eval_utils
-
-file_path = os.path.dirname(os.path.realpath(__file__))
-initialize_params = bmk.make_initialize_params(file_path)
 
 
 GParams = t.Dict[str, t.Any]
 
-# NOTE: split should be in additional parameters
 
-input_paths = SimpleNamespace(
-    labels="LabelsLogIC50.csv",
-    split="splits/tumor_blind/fold_1.pkl",
-    mol="ScreenDL/FeatureMorganFingerprints.csv",
-    exp="ScreenDL/FeatureGeneExpression.csv",
-)
+file_path = os.path.dirname(os.path.realpath(__file__))
+init_params = bmk.make_param_initializer(file_path)
 
 
-def split_dataset(g_params: GParams, D: Dataset) -> t.Tuple[Dataset, Dataset, Dataset]:
+paths = SimpleNamespace(dataset="CellModelPassportsGDSCv2.h5")
+
+
+def split_data(g_params: GParams, D: Dataset) -> t.Tuple[Dataset, Dataset]:
     """Splits the dataset into train/val/test."""
     data_dir = Path(g_params["data_dir"])
 
     split_type = g_params["split_type"]
     split_id = g_params["split_id"]
-    split_path = data_dir / split_type / f"fold_{split_id}.pkl"
+    split_path = data_dir / "splits" / split_type / f"fold_{split_id}.pkl"
 
     with open(split_path, "rb") as fh:
         split_dict = pickle.load(fh)
 
-    return (
-        D.select(split_dict["train"]),
-        D.select(split_dict["val"]),
-        D.select(split_dict["test"]),
-    )
+    train_ds = D.select(split_dict["train"])
+    val_ds = D.select(split_dict["val"])
+
+    return train_ds, val_ds
+
+
+def preprocess_data(
+    g_params: GParams, train_ds: Dataset, val_ds: Dataset
+) -> t.Tuple[Dataset, Dataset]:
+    """Normalizers drug response labels and expression data."""
+    output_dir = Path(g_params["output_dir"])
+    norm_method = g_params["label_norm_method"]
+
+    # normalize the drug response labels
+    y_train = train_ds.obs[["label"]]
+    y_val = val_ds.obs[["label"]]
+
+    if norm_method == "grouped":
+        groups_train = train_ds.obs["drug_id"]
+        groups_val = val_ds.obs["drug_id"]
+
+        scaler = GroupStandardScaler()
+        train_ds.obs["label"] = scaler.fit_transform(y_train, groups=groups_train)
+        val_ds.obs["label"] = scaler.transform(y_val, groups=groups_val)
+
+    elif norm_method == "global":
+        scaler = StandardScaler()
+        train_ds.obs["label"] = scaler.fit_transform(y_train)
+        val_ds.obs["label"] = scaler.transform(y_val)
+
+    else:
+        raise ValueError(f"Unsupported label normalization method ({norm_method})")
+
+    with open(output_dir / "label_scaler.pkl", "wb") as fh:
+        pickle.dump(scaler, fh)
+
+    # normalize gene expression features
+    exp_enc: PandasEncoder = train_ds.cell_encoders["exp"]
+    x_train = np.array(exp_enc.encode(list(set(train_ds.cell_ids))))
+    exp_scaler = StandardScaler().fit(x_train)
+    exp_enc.data[:] = exp_scaler.transform(exp_enc.data.values)
+
+    with open(output_dir / "exp_scaler.pkl", "wb") as fh:
+        pickle.dump(exp_scaler, fh)
+
+    return train_ds, val_ds
 
 
 def run(g_params: GParams) -> t.Dict[str, float]:
     """Trains and evaluates ScreenDL for the specified parameters."""
-    print(g_params)
-
     data_dir = Path(g_params["data_dir"])
+    output_dir = Path(g_params["output_dir"])
 
-    cell_encoders = screendl.load_cell_features(data_dir / input_paths.exp)
-    drug_encoders = screendl.load_drug_features(data_dir / input_paths.mol)
+    D = Dataset.load(data_dir / paths.dataset)
+    train_ds, val_ds = split_data(g_params, D)
+    train_ds, val_ds = preprocess_data(g_params, train_ds, val_ds)
 
-    D = Dataset.from_csv(
-        data_dir / input_paths.labels,
-        name="cmp-gdsc2",
-        cell_encoders=cell_encoders,
-        drug_encoders=drug_encoders,
+    exp_dim = train_ds.cell_encoders["exp"].shape[-1]
+    mol_dim = train_ds.drug_encoders["mol"].shape[-1]
+
+    model = screendl.create_model(
+        exp_dim=exp_dim,
+        mol_dim=mol_dim,
+        exp_hidden_dims=g_params["exp_hidden_dims"],
+        mol_hidden_dims=g_params["mol_hidden_dims"],
+        shared_hidden_dims=g_params["shared_hidden_dims"],
+        use_batch_norm=g_params["use_batch_norm"],
+        use_dropout=g_params["use_dropout"],
+        dropout_rate=g_params["dropout_rate"],
+        activation=g_params["activation"],
     )
 
-    train_ds, val_ds, test_ds = split_dataset(g_params, D)
+    model.compile(
+        optimizer=keras.optimizers.Adam(g_params["learning_rate"]),
+        loss="mean_squared_error",
+    )
 
-    print(train_ds, val_ds, test_ds)
+    train_gen = BatchedResponseGenerator(train_ds, g_params["batch_size"])
+    val_gen = BatchedResponseGenerator(val_ds, g_params["batch_size"])
+    train_seq = train_gen.flow_from_dataset(train_ds, shuffle=True, seed=4114)
+    val_seq = val_gen.flow_from_dataset(val_ds)
+
+    early_stopping = keras.callbacks.EarlyStopping(
+        "val_loss",
+        patience=10,
+        restore_best_weights=True,
+        start_from_epoch=3,
+        verbose=1,
+    )
+
+    hx = model.fit(
+        train_seq,
+        epochs=g_params["epochs"],
+        validation_data=val_seq,
+        callbacks=[early_stopping],
+    )
+
+    model.save(output_dir / "model")
+
+    val_preds = model.predict(val_seq)
+    val_result = eval_utils.make_pred_df(val_ds, val_preds)
+    val_result.to_csv(output_dir / "predictions.csv")
+
+    val_scores = eval_utils.get_eval_metrics(val_result)
+    with open(output_dir / "scores.json", "w", encoding="utf-8") as fh:
+        json.dump(val_scores, fh, ensure_ascii=False, indent=4)
+
+    print("IMPROVE_RESULT val_loss:\t{}".format(val_scores["loss"]))
+
+    return val_scores
 
 
 def main() -> None:
-    g_params = initialize_params()
+    g_params = init_params()
     scores = run(g_params)
 
 
