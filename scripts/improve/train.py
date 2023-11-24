@@ -7,6 +7,8 @@ import os
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
+import pickle
+
 import typing as t
 import benchmark as bmk
 import tensorflow.keras.backend as K  # pyright: ignore[reportMissingImports]
@@ -34,8 +36,22 @@ input_paths = SimpleNamespace(
 )
 
 
-def split_data(g_params: GParams, D: Dataset) -> t.Tuple[Dataset, Dataset, Dataset]:
+def split_dataset(g_params: GParams, D: Dataset) -> t.Tuple[Dataset, Dataset, Dataset]:
     """Splits the dataset into train/val/test."""
+    data_dir = Path(g_params["data_dir"])
+
+    split_type = g_params["split_type"]
+    split_id = g_params["split_id"]
+    split_path = data_dir / split_type / f"fold_{split_id}.pkl"
+
+    with open(split_path, "rb") as fh:
+        split_dict = pickle.load(fh)
+
+    return (
+        D.select(split_dict["train"]),
+        D.select(split_dict["val"]),
+        D.select(split_dict["test"]),
+    )
 
 
 def run(g_params: GParams) -> t.Dict[str, float]:
@@ -54,8 +70,9 @@ def run(g_params: GParams) -> t.Dict[str, float]:
         drug_encoders=drug_encoders,
     )
 
-    # with open(split_)
-    print(os.getcwd())
+    train_ds, val_ds, test_ds = split_dataset(g_params, D)
+
+    print(train_ds, val_ds, test_ds)
 
 
 def main() -> None:
