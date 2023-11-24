@@ -70,7 +70,7 @@ additional_definitions = [
 required_definitions = ["epochs", "batch_size", "learning_rate"]
 
 
-class ScreenDL(candle.Benchmark):
+class ScreenDLBenchmark(candle.Benchmark):
     def set_locals(self):
         if required_definitions is not None:
             self.required = set(required_definitions)
@@ -83,7 +83,7 @@ def make_param_initializer(file_path: str) -> t.Callabe[[], t.Dict[str, t.Any]]:
     """Creates parameter initializer."""
 
     def initialize_params() -> t.Dict[str, t.Any]:
-        screendl_bmk = ScreenDL(
+        screendl_bmk = ScreenDLBenchmark(
             file_path,
             "screendl_default_model.txt",
             "keras",
