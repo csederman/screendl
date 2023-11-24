@@ -9,34 +9,37 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 import pickle
 
+import numpy as np
 import typing as t
 import benchmark as bmk
 import tensorflow.keras.backend as K  # pyright: ignore[reportMissingImports]
 
-from types import SimpleNamespace
 from pathlib import Path
+from sklearn.preprocessing import StandardScaler
+from types import SimpleNamespace
 
 from cdrpy.data import Dataset
+from cdrpy.data.preprocess import normalize_responses
+from cdrpy.feat.encoders import PandasEncoder
+
 from screendl import model as screendl
 from screendl.utils import evaluation as eval_utils
-
-file_path = os.path.dirname(os.path.realpath(__file__))
-initialize_params = bmk.make_initialize_params(file_path)
 
 
 GParams = t.Dict[str, t.Any]
 
-# NOTE: split should be in additional parameters
 
-input_paths = SimpleNamespace(
-    labels="LabelsLogIC50.csv",
+file_path = os.path.dirname(os.path.realpath(__file__))
+init_params = bmk.make_param_initializer(file_path)
+
+
+paths = SimpleNamespace(
+    dataset="CellModelPassportsGDSCv2.h5",
     split="splits/tumor_blind/fold_1.pkl",
-    mol="ScreenDL/FeatureMorganFingerprints.csv",
-    exp="ScreenDL/FeatureGeneExpression.csv",
 )
 
 
-def split_dataset(g_params: GParams, D: Dataset) -> t.Tuple[Dataset, Dataset, Dataset]:
+def split_data(g_params: GParams, D: Dataset) -> t.Tuple[Dataset, Dataset, Dataset]:
     """Splits the dataset into train/val/test."""
     data_dir = Path(g_params["data_dir"])
 
@@ -54,29 +57,43 @@ def split_dataset(g_params: GParams, D: Dataset) -> t.Tuple[Dataset, Dataset, Da
     )
 
 
+def preprocess_data(
+    g_params: GParams, train_ds: Dataset, val_ds: Dataset, test_ds: Dataset
+) -> t.Tuple[Dataset, Dataset, Dataset]:
+    """Runs preprocessing."""
+
+    # FIXME: add g_params passing of norm_method
+    # FIXME: add saving of the sklearn transformer
+    train_ds, val_ds, test_ds = normalize_responses(
+        train_ds, val_ds, test_ds, norm_method="global"
+    )
+
+    # normalize gene expression features
+    # FIXME: add saving of the standard scaler
+    exp_enc: PandasEncoder = train_ds.cell_encoders["exp"]
+    X_exp = np.array(exp_enc.encode(list(set(train_ds.cell_ids))))
+    exp_scaler = StandardScaler().fit(X_exp)
+    exp_enc.data[:] = exp_scaler.transform(exp_enc.data.values)
+
+    return train_ds, val_ds, test_ds
+
+
 def run(g_params: GParams) -> t.Dict[str, float]:
     """Trains and evaluates ScreenDL for the specified parameters."""
     print(g_params)
 
     data_dir = Path(g_params["data_dir"])
 
-    cell_encoders = screendl.load_cell_features(data_dir / input_paths.exp)
-    drug_encoders = screendl.load_drug_features(data_dir / input_paths.mol)
+    D = Dataset.load(data_dir / paths.dataset)
 
-    D = Dataset.from_csv(
-        data_dir / input_paths.labels,
-        name="cmp-gdsc2",
-        cell_encoders=cell_encoders,
-        drug_encoders=drug_encoders,
-    )
-
-    train_ds, val_ds, test_ds = split_dataset(g_params, D)
+    train_ds, val_ds, test_ds = split_data(g_params, D)
+    train_ds, val_ds, test_ds = preprocess_data(g_params, train_ds, val_ds, test_ds)
 
     print(train_ds, val_ds, test_ds)
 
 
 def main() -> None:
-    g_params = initialize_params()
+    g_params = init_params()
     scores = run(g_params)
 
 

@@ -73,7 +73,7 @@ class ScreenDL(candle.Benchmark):
             self.additional_definitions = additional_definitions
 
 
-def make_initialize_params(file_path: str) -> t.Callabe[[], t.Dict[str, t.Any]]:
+def make_param_initializer(file_path: str) -> t.Callabe[[], t.Dict[str, t.Any]]:
     """Creates parameter initializer."""
 
     def initialize_params() -> t.Dict[str, t.Any]:
