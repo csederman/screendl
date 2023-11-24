@@ -137,9 +137,9 @@ def generate_tumor_type_blind_splits(
     out_dir.mkdir(exist_ok=True)
 
     fold_to_ct = {}
-    for i, (ct, ct_cell_meta) in enumerate(cell_meta.groupby("cancer_type")):
+    for i, (ct, ct_cell_meta) in enumerate(cell_meta.groupby("cancer_type"), 1):
         fold_to_ct[i] = ct
-        test_cells = ct_cell_meta["cancer_type"]
+        test_cells = ct_cell_meta["cell_id"]
 
         # generate a train/validation split
         other_cell_meta = cell_meta[cell_meta["cancer_type"] != ct]
