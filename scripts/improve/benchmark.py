@@ -60,6 +60,12 @@ additional_definitions = [
         "type": str,
         "default": "tumor_blind",
     },
+    # preprocessing
+    {
+        "name": "label_norm_method",
+        "type": str,
+        "default": "grouped",
+    },
 ]
 required_definitions = ["epochs", "batch_size", "learning_rate"]
 
