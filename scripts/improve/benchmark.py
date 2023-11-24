@@ -60,11 +60,17 @@ additional_definitions = [
         "type": str,
         "default": "tumor_blind",
     },
+    # preprocessing
+    {
+        "name": "label_norm_method",
+        "type": str,
+        "default": "grouped",
+    },
 ]
 required_definitions = ["epochs", "batch_size", "learning_rate"]
 
 
-class ScreenDL(candle.Benchmark):
+class ScreenDLBenchmark(candle.Benchmark):
     def set_locals(self):
         if required_definitions is not None:
             self.required = set(required_definitions)
@@ -73,11 +79,11 @@ class ScreenDL(candle.Benchmark):
             self.additional_definitions = additional_definitions
 
 
-def make_initialize_params(file_path: str) -> t.Callabe[[], t.Dict[str, t.Any]]:
+def make_param_initializer(file_path: str) -> t.Callabe[[], t.Dict[str, t.Any]]:
     """Creates parameter initializer."""
 
     def initialize_params() -> t.Dict[str, t.Any]:
-        screendl_bmk = ScreenDL(
+        screendl_bmk = ScreenDLBenchmark(
             file_path,
             "screendl_default_model.txt",
             "keras",

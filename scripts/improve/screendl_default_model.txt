@@ -15,3 +15,6 @@ activation = "leaky_relu"
 shared_hidden_dims = [64, 32, 16, 8]
 exp_hidden_dims = [512, 256, 128, 64]
 mol_hidden_dims = [256, 128, 64]
+
+# preprocessing
+label_norm_method = "grouped"
