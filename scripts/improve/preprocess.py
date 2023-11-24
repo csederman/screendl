@@ -17,7 +17,6 @@ import zipfile
 import pandas as pd
 import typing as t
 
-from collections import namedtuple
 from cdrpy.data import Dataset
 from cdrpy.feat.encoders import PandasEncoder
 from cdrpy.util import io as io_utils
@@ -27,53 +26,31 @@ from screendl.preprocessing.data import harmonize_cmp_gdsc_data
 from screendl.preprocessing.models import generate_screendl_inputs
 from screendl.preprocessing.splits import kfold_split_generator
 
-import typing as t
-
 
 CMP_EXP_PATH = "https://cog.sanger.ac.uk/cmp/download/rnaseq_all_20220624.zip"
 CMP_META_PATH = "https://cog.sanger.ac.uk/cmp/download/model_list_20230923.csv"
 GDSC_SCREEN_PATH = "https://cog.sanger.ac.uk/cancerrxgene/GDSC_release8.5/GDSC2_fitted_dose_response_27Oct23.xlsx"
 
 
-class CMPData(t.NamedTuple):
-    """Container for Cell Model Passports data sources."""
-
-    exp: pd.DataFrame
-    meta: pd.DataFrame
-
-
-class GDSCData(t.NamedTuple):
-    """Container for GDSC data sources."""
-
-    resp: pd.DataFrame
-    meta: pd.DataFrame
-
-
-def fetch_gdsc_drug_info() -> io.StringIO:
-    """Downloads GDSC drug annotations."""
-    url = "https://www.cancerrxgene.org/api/compounds"
-    with requests.Session() as s:
-        response = s.get(url, params={"list": "all", "export": "csv"})
-    return io.StringIO(response.content.decode())
-
-
-def get_gdsc_data() -> GDSCData:
+def get_gdsc_data() -> gdsc.GDSCData:
     """Downloads and preprocesses the GDSC data."""
-    resp_data, meta_data = gdsc.load_gdsc_data(GDSC_SCREEN_PATH, fetch_gdsc_drug_info())
-    resp_data, meta_data = gdsc.harmonize_gdsc_data(resp_data, meta_data)
+    gdsc_drug_meta = gdsc.fetch_gdsc_drug_info()
+    gdsc_data = gdsc.load_and_clean_gdsc_data(GDSC_SCREEN_PATH, gdsc_drug_meta)
 
     # get drug properties from PubCHEM
-    pchem_ids = list(meta_data["pubchem_id"])
+    pchem_ids = list(gdsc_data.meta["pubchem_id"])
     pchem_props = pubchem.fetch_pubchem_properties(pchem_ids)
     pchem_props = pchem_props.rename(columns={"CanonicalSMILES": "smiles"})
     pchem_props["CID"] = pchem_props["CID"].astype(str)
 
-    meta_data = meta_data.merge(pchem_props, left_on="pubchem_id", right_on="CID")
+    gdsc_data.meta = gdsc_data.meta.merge(
+        pchem_props, left_on="pubchem_id", right_on="CID"
+    )
 
-    return GDSCData(resp_data, meta_data)
+    return gdsc_data
 
 
-def get_cmp_data() -> CMPData:
+def get_cmp_data() -> cmp.CMPData:
     """Downloads and preprocesses the Cell Model Passports data."""
     response = requests.get(CMP_EXP_PATH)
     response.raise_for_status()
@@ -84,14 +61,13 @@ def get_cmp_data() -> CMPData:
 
     meta_data = pd.read_csv(CMP_META_PATH)
 
-    exp_data, meta_data, *_ = cmp.harmonize_cmp_data(
-        exp_data,
-        meta_data,
+    cmp_data = cmp.clean_cmp_data(
+        cmp.CMPData(exp_data, meta_data),
         min_cells_per_cancer_type=20,
         required_info_columns=["cancer_type", "ploidy_wes"],
     )
 
-    return CMPData(exp_data, meta_data)
+    return cmp_data
 
 
 def clean_labels(df: pd.DataFrame) -> pd.DataFrame:
@@ -114,11 +90,11 @@ def clean_sample_meta(df: pd.DataFrame) -> pd.DataFrame:
     return df[cols].set_index("model_id").rename_axis(index="cell_id")
 
 
-def make_splits(
+def generate_splits(
     sample_meta: pd.DataFrame, labels: pd.DataFrame
 ) -> t.Generator[t.Dict[str, t.List[int]]]:
-    """"""
-    sample_ids = sample_meta["cell_id"]
+    """Generates sample blind train/val/test splits."""
+    sample_ids = pd.Series(sample_meta.index)
     sample_groups = sample_meta["cancer_type"]
 
     gen = kfold_split_generator(
@@ -167,20 +143,20 @@ def preprocess(args: t.List[str]) -> None:
     cmp_data = get_cmp_data()
 
     # harmonize the raw data
-    harmonized_data = harmonize_cmp_gdsc_data(
-        cmp_data.exp, gdsc_data.resp, cmp_data.meta, gdsc_data.meta
-    )
-    exp_data, screen_data, cell_meta, drug_meta, *_ = harmonized_data
+    cmp_data, gdsc_data = harmonize_cmp_gdsc_data(cmp_data, gdsc_data)
 
     # generate inputs
-    exp_genes = io_utils.read_pickled_list(args.genelist)
     exp_feat, *_, mol_feat = generate_screendl_inputs(
-        cell_meta, drug_meta, exp_data, exp_gene_list=exp_genes
+        cmp_data.meta,
+        gdsc_data.meta,
+        cmp_data.exp,
+        exp_gene_list=io_utils.read_pickled_list(args.genelist),
     )
 
-    labels = clean_labels(screen_data)
-    drug_meta = clean_drug_meta(drug_meta)
-    cell_meta = clean_sample_meta(cell_meta)
+    # extract labels and metadata
+    labels = clean_labels(gdsc_data.resp)
+    drug_meta = clean_drug_meta(gdsc_data.meta)
+    cell_meta = clean_sample_meta(cmp_data.meta)
 
     D = Dataset(
         labels,
@@ -193,14 +169,15 @@ def preprocess(args: t.List[str]) -> None:
 
     D.save(os.path.join(out_root, f"{D.name}.h5"))
 
+    # generate train/val/test splits
     split_dir = os.path.join(out_root, "splits", "tumor_blind")
     os.makedirs(split_dir, exist_ok=True)
 
-    split_gen = make_splits(D.cell_meta.reset_index(), D.obs)
-    for i, split_dict in enumerate(split_gen, 1):
-        split_path = os.path.join(split_dir, f"fold_{i}.pkl")
-        with open(split_path, "wb") as fh:
-            pickle.dump(split_dict, fh)
+    split_gen = generate_splits(D.cell_meta, D.obs)
+    for i, split in enumerate(split_gen, 1):
+        split_file = os.path.join(split_dir, f"fold_{i}.pkl")
+        with open(split_file, "wb") as fh:
+            pickle.dump(split, fh)
 
 
 if __name__ == "__main__":
