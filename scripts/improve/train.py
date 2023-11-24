@@ -45,7 +45,7 @@ def split_data(g_params: GParams, D: Dataset) -> t.Tuple[Dataset, Dataset, Datas
 
     split_type = g_params["split_type"]
     split_id = g_params["split_id"]
-    split_path = data_dir / split_type / f"fold_{split_id}.pkl"
+    split_path = data_dir / "splits" / split_type / f"fold_{split_id}.pkl"
 
     with open(split_path, "rb") as fh:
         split_dict = pickle.load(fh)
