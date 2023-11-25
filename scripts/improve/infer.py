@@ -58,8 +58,6 @@ def preprocess_data(g_params: GParams, D: Dataset) -> Dataset:
     output_dir = Path(g_params["output_dir"])
     norm_method = g_params["label_norm_method"]
 
-    print(os.listdir(g_params["output_dir"]))
-
     with open(output_dir / "label_scaler.pkl", "rb") as fh:
         label_scaler: LabelScaler = pickle.load(fh)
 
@@ -81,12 +79,9 @@ def preprocess_data(g_params: GParams, D: Dataset) -> Dataset:
     return D
 
 
-def infer(g_params: GParams) -> None:
+def infer(g_params: GParams) -> t.Dict[str, float]:
     """Runs inference with ScreenDL."""
-    data_dir = Path(g_params["data_dir"])
     output_dir = Path(g_params["output_dir"])
-
-    print(output_dir)
 
     D = load_test_data(g_params)
     D = preprocess_data(g_params, D)
@@ -96,6 +91,13 @@ def infer(g_params: GParams) -> None:
     gen = BatchedResponseGenerator(D, g_params["batch_size"])
     preds = model.predict(gen.flow_from_dataset(D))
     result = eval_utils.make_pred_df(D, preds)
+    result.to_csv(output_dir / "test_predictions.csv", index=False)
+
+    scores = eval_utils.get_eval_metrics(result)
+    with open(output_dir / "test_scores.json", "w", encoding="utf-8") as fh:
+        json.dump(scores, fh, ensure_ascii=False, indent=4)
+
+    return scores
 
 
 def main() -> None:
