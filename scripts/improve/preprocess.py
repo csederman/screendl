@@ -10,6 +10,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 import io
 import sys
 import argparse
+import logging
 import pickle
 import requests
 import zipfile
@@ -27,6 +28,10 @@ from screendl.preprocessing.models import generate_screendl_inputs
 from screendl.preprocessing.splits import kfold_split_generator
 
 from constants import GENELIST_CHOICES
+
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 
 
 CMP_EXP_PATH = "https://cog.sanger.ac.uk/cmp/download/rnaseq_all_20220624.zip"
@@ -144,13 +149,17 @@ def preprocess(args: t.List[str]) -> None:
     os.makedirs(out_root, exist_ok=True)
 
     # fetch and clean the raw data
+    log.info("Fetching GDSC data.")
     gdsc_data = get_gdsc_data()
+
+    log.info("Fetching Cell Model Passports data.")
     cmp_data = get_cmp_data()
 
     # harmonize the raw data
     cmp_data, gdsc_data = harmonize_cmp_gdsc_data(cmp_data, gdsc_data)
 
     # generate inputs
+    log.info("Generating dataset.")
     genelist_path = os.path.join("/genelist_dir", GENELIST_CHOICES[args.genelist])
     exp_feat, *_, mol_feat = generate_screendl_inputs(
         cmp_data.meta,
@@ -159,7 +168,6 @@ def preprocess(args: t.List[str]) -> None:
         exp_gene_list=io_utils.read_pickled_list(genelist_path),
     )
 
-    # extract labels and metadata
     labels = clean_labels(gdsc_data.resp)
     drug_meta = clean_drug_meta(gdsc_data.meta)
     cell_meta = clean_sample_meta(cmp_data.meta)
@@ -175,7 +183,8 @@ def preprocess(args: t.List[str]) -> None:
 
     D.save(os.path.join(out_root, f"{D.name}.h5"))
 
-    # generate train/val/test splits
+    log.info("Generating train/val/test splits")
+
     split_dir = os.path.join(out_root, "splits", "tumor_blind")
     os.makedirs(split_dir, exist_ok=True)
 
@@ -187,4 +196,10 @@ def preprocess(args: t.List[str]) -> None:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        format="[%(asctime)s][%(name)s][%(levelname)s] - %(message)s",
+        datefmt="%Y-%m-%d %I:%M:%S,%03d",
+        handlers=[logging.StreamHandler(sys.stdout)],
+    )
+
     preprocess(sys.argv[1:])
