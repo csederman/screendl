@@ -18,7 +18,6 @@ import tensorflow.keras.backend as K  # pyright: ignore[reportMissingImports]
 from pathlib import Path
 from sklearn.preprocessing import StandardScaler
 from tensorflow import keras
-from types import SimpleNamespace
 
 from cdrpy.data import Dataset
 from cdrpy.feat.encoders import PandasEncoder
@@ -50,8 +49,8 @@ def split_data(g_params: GParams, D: Dataset) -> t.Tuple[Dataset, Dataset]:
     with open(split_path, "rb") as fh:
         split_dict = pickle.load(fh)
 
-    train_ds = D.select(split_dict["train"])
-    val_ds = D.select(split_dict["val"])
+    train_ds = D.select(split_dict["train"], name="train")
+    val_ds = D.select(split_dict["val"], name="val")
 
     return train_ds, val_ds
 
@@ -98,7 +97,7 @@ def preprocess_data(
     return train_ds, val_ds
 
 
-def run(g_params: GParams) -> t.Dict[str, float]:
+def train(g_params: GParams) -> t.Dict[str, float]:
     """Trains and evaluates ScreenDL for the specified parameters."""
     data_dir = Path(g_params["data_dir"])
     output_dir = Path(g_params["output_dir"])
@@ -154,7 +153,7 @@ def run(g_params: GParams) -> t.Dict[str, float]:
     val_result.to_csv(output_dir / "predictions.csv")
 
     val_scores = eval_utils.get_eval_metrics(val_result)
-    with open(output_dir / "scores.json", "w", encoding="utf-8") as fh:
+    with open(output_dir / "val_scores.json", "w", encoding="utf-8") as fh:
         json.dump(val_scores, fh, ensure_ascii=False, indent=4)
 
     print("IMPROVE_RESULT val_loss:\t{}".format(val_scores["loss"]))
@@ -164,7 +163,7 @@ def run(g_params: GParams) -> t.Dict[str, float]:
 
 def main() -> None:
     g_params = init_params()
-    scores = run(g_params)
+    scores = train(g_params)
 
 
 if __name__ == "__main__":
