@@ -127,6 +127,7 @@ def parse_args(args: t.List[str]) -> argparse.Namespace:
         type=str,
         required=True,
         choices=list(GENELIST_CHOICES),
+        default="mcg",
         help="The genelist for selection of gene expression features.",
     )
 
