@@ -15,17 +15,17 @@ import benchmark as bmk
 import tensorflow.keras.backend as K  # pyright: ignore[reportMissingImports]
 
 from pathlib import Path
+from sklearn.preprocessing import StandardScaler
 from tensorflow import keras
 
 from cdrpy.data import Dataset
 from cdrpy.mapper import BatchedResponseGenerator
+from cdrpy.feat.transformers import GroupStandardScaler
 
 from screendl.utils import evaluation as eval_utils
 
 if t.TYPE_CHECKING:
     from cdrpy.feat.encoders import PandasEncoder
-    from cdrpy.feat.transformers import GroupStandardScaler
-    from sklearn.preprocessing import StandardScaler
 
 
 GParams = t.Dict[str, t.Any]
