@@ -86,6 +86,8 @@ def infer(g_params: GParams) -> None:
     data_dir = Path(g_params["data_dir"])
     output_dir = Path(g_params["output_dir"])
 
+    print(output_dir)
+
     D = load_test_data(g_params)
     D = preprocess_data(g_params, D)
 
