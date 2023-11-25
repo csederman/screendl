@@ -120,6 +120,7 @@ def parse_args(args: t.List[str]) -> argparse.Namespace:
         "--outdir",
         type=str,
         required=True,
+        # default="/improve_data_dir/screendl/Data",
         help="Output dir to store the generated files.",
     )
     parser.add_argument(

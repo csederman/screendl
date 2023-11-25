@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-### Path to preprocessing script
+# Path to preprocessing script
 CANDLE_PREPROCESS=/usr/local/screendl/scripts/improve/preprocess.py
 
 if [ $# -lt 2 ] ; then
