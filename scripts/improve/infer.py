@@ -50,7 +50,7 @@ def load_test_data(g_params: GParams) -> Dataset:
     with open(split_path, "rb") as fh:
         split_dict = pickle.load(fh)
 
-    return D.select(split_dict["train"], name="test")
+    return D.select(split_dict["test"], name="test")
 
 
 def preprocess_data(g_params: GParams, D: Dataset) -> Dataset:
