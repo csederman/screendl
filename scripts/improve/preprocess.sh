@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 ### Path to preprocessing script
-GENELIST_DIR=/genelist_dir
 CANDLE_PREPROCESS=/usr/local/screendl/scripts/improve/preprocess.py
 
 if [ $# -lt 2 ] ; then
@@ -48,7 +47,7 @@ EXE_DIR=$(dirname ${CANDLE_PREPROCESS})
 cd "$EXE_DIR" || exit
 
 echo "running command ${CMD}"
-CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES} CANDLE_DATA_DIR=${CANDLE_DATA_DIR} GENELIST_DIR=${GENELIST_DIR} $CMD
+CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES} CANDLE_DATA_DIR=${CANDLE_DATA_DIR} $CMD
 
 # Check if successful
 exit 0

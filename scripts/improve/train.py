@@ -33,8 +33,6 @@ GParams = t.Dict[str, t.Any]
 
 file_path = os.path.dirname(os.path.realpath(__file__))
 init_params = bmk.make_param_initializer(file_path)
-
-
 bmk.configure_session()
 
 
@@ -150,7 +148,7 @@ def train(g_params: GParams) -> t.Dict[str, float]:
 
     val_preds = model.predict(val_seq)
     val_result = eval_utils.make_pred_df(val_ds, val_preds)
-    val_result.to_csv(output_dir / "predictions.csv")
+    val_result.to_csv(output_dir / "val_predictions.csv")
 
     val_scores = eval_utils.get_eval_metrics(val_result)
     with open(output_dir / "val_scores.json", "w", encoding="utf-8") as fh:

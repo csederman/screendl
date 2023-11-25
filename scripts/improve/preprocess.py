@@ -149,10 +149,8 @@ def preprocess(args: t.List[str]) -> None:
     # harmonize the raw data
     cmp_data, gdsc_data = harmonize_cmp_gdsc_data(cmp_data, gdsc_data)
 
-    genelist_dir = os.environ["GENELIST_DIR"]
-    genelist_path = os.path.join(genelist_dir, GENELIST_CHOICES[args.genelist])
-
     # generate inputs
+    genelist_path = os.path.join("/genelist_dir", GENELIST_CHOICES[args.genelist])
     exp_feat, *_, mol_feat = generate_screendl_inputs(
         cmp_data.meta,
         gdsc_data.meta,
