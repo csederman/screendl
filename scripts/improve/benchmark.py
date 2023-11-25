@@ -10,64 +10,8 @@ import typing as t
 
 from tensorflow.keras import backend as K  # pyright: ignore[reportMissingImports]
 
-
-additional_definitions = [
-    # hyperparameters
-    {
-        "name": "activation",
-        "type": str,
-        "default": "leaky_relu",
-    },
-    {
-        "name": "use_dropout",
-        "type": bool,
-        "default": False,
-    },
-    {
-        "name": "dropout_rate",
-        "type": float,
-        "default": 0.1,
-    },
-    {
-        "name": "use_batch_norm",
-        "type": bool,
-        "default": False,
-    },
-    # architecture
-    {
-        "name": "shared_hidden_dims",
-        "type": t.List[str],
-        "default": [64, 32, 16, 8],
-    },
-    {
-        "name": "exp_hidden_dims",
-        "type": t.List[str],
-        "default": [512, 256, 128, 64],
-    },
-    {
-        "name": "mol_hidden_dims",
-        "type": t.List[str],
-        "default": [256, 128, 64],
-    },
-    # train/val/test split
-    {
-        "name": "split_id",
-        "type": int,
-        "default": 1,
-    },
-    {
-        "name": "split_type",
-        "type": str,
-        "default": "tumor_blind",
-    },
-    # preprocessing
-    {
-        "name": "label_norm_method",
-        "type": str,
-        "default": "grouped",
-    },
-]
-required_definitions = ["epochs", "batch_size", "learning_rate"]
+from constants import IMPROVE_ADDITIONAL_DEFINITIONS as additional_definitions
+from constants import IMPROVE_REQUIRED_DEFINITIONS as required_definitions
 
 
 class ScreenDLBenchmark(candle.Benchmark):
