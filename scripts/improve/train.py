@@ -36,7 +36,7 @@ file_path = os.path.dirname(os.path.realpath(__file__))
 init_params = bmk.make_param_initializer(file_path)
 
 
-paths = SimpleNamespace(dataset="CellModelPassportsGDSCv2.h5")
+bmk.configure_session()
 
 
 def split_data(g_params: GParams, D: Dataset) -> t.Tuple[Dataset, Dataset]:
@@ -103,7 +103,7 @@ def run(g_params: GParams) -> t.Dict[str, float]:
     data_dir = Path(g_params["data_dir"])
     output_dir = Path(g_params["output_dir"])
 
-    D = Dataset.load(data_dir / paths.dataset)
+    D = Dataset.load(data_dir / "CellModelPassportsGDSCv2.h5")
     train_ds, val_ds = split_data(g_params, D)
     train_ds, val_ds = preprocess_data(g_params, train_ds, val_ds)
 

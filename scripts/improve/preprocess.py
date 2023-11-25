@@ -26,6 +26,8 @@ from screendl.preprocessing.data import harmonize_cmp_gdsc_data
 from screendl.preprocessing.models import generate_screendl_inputs
 from screendl.preprocessing.splits import kfold_split_generator
 
+from constants import GENELIST_CHOICES
+
 
 CMP_EXP_PATH = "https://cog.sanger.ac.uk/cmp/download/rnaseq_all_20220624.zip"
 CMP_META_PATH = "https://cog.sanger.ac.uk/cmp/download/model_list_20230923.csv"
@@ -124,7 +126,8 @@ def parse_args(args: t.List[str]) -> argparse.Namespace:
         "--genelist",
         type=str,
         required=True,
-        help="Path to pickled genelist for selection of gene expression features.",
+        choices=list(GENELIST_CHOICES),
+        help="The genelist for selection of gene expression features.",
     )
 
     args = parser.parse_args(args)
@@ -145,12 +148,15 @@ def preprocess(args: t.List[str]) -> None:
     # harmonize the raw data
     cmp_data, gdsc_data = harmonize_cmp_gdsc_data(cmp_data, gdsc_data)
 
+    genelist_dir = os.environ["GENELIST_DIR"]
+    genelist_path = os.path.join(genelist_dir, GENELIST_CHOICES[args.genelist])
+
     # generate inputs
     exp_feat, *_, mol_feat = generate_screendl_inputs(
         cmp_data.meta,
         gdsc_data.meta,
         cmp_data.exp,
-        exp_gene_list=io_utils.read_pickled_list(args.genelist),
+        exp_gene_list=io_utils.read_pickled_list(genelist_path),
     )
 
     # extract labels and metadata
