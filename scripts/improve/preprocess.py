@@ -59,19 +59,15 @@ def get_gdsc_data() -> gdsc.GDSCData:
 
 def get_cmp_data() -> cmp.CMPData:
     """Downloads and preprocesses the Cell Model Passports data."""
-    print("getting data")
     response = requests.get(CMP_EXP_PATH)
     response.raise_for_status()
 
-    print("reading zipfile")
     with zipfile.ZipFile(io.BytesIO(response.content)) as zfh:
         assert "rnaseq_tpm_20220624.csv" in zfh.namelist()
         exp_data = cmp.load_cmp_expression(zfh.open("rnaseq_tpm_20220624.csv"))
 
-    print("reading meta")
     meta_data = pd.read_csv(CMP_META_PATH)
 
-    print("cleaning")
     cmp_data = cmp.clean_cmp_data(
         cmp.CMPData(exp_data, meta_data),
         min_cells_per_cancer_type=20,
