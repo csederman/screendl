@@ -8,7 +8,10 @@ split:
   id: 1
 
 sources:
+
   labels: "${dataset.dir}/LabelsLogIC50.csv"
+  cell_meta: "${dataset.dir}/MetaCellAnnotations.csv"
+  drug_meta: "${dataset.dir}/MetaDrugAnnotations.csv"
 
   dualgcn:
     exp: "${dataset.dir}/DualGCN/FeatureGeneExpression.csv"
@@ -22,7 +25,7 @@ sources:
     cnv: "${dataset.dir}/ScreenDL/FeatureCopyNumberRatio.csv"
     ont: "${dataset.dir}/ScreenDL/FeatureCancerTypeOntology.csv"
     mol: "${dataset.dir}/ScreenDL/FeatureMorganFingerprints.csv"
-
+  
   deepcdr:
     exp: "${dataset.dir}/DeepCDR/FeatureGeneExpression.csv"
     mut: "${dataset.dir}/DeepCDR/FeatureSomaticMutations.csv"

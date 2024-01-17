@@ -17,6 +17,7 @@ requirements = [
     "deepchem >= 2.7.1",
     "cdrpy",
     "scipy",
+    "mygene == 3.2.2",
 ]
 
 extras_require = {

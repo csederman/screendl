@@ -16,6 +16,7 @@ import pandas as pd
 import typing as t
 
 from omegaconf import DictConfig
+from scipy import stats
 from sklearn.preprocessing import StandardScaler
 from tensorflow import keras
 from tqdm import tqdm
@@ -59,6 +60,29 @@ SELECTORS = {
 }
 
 
+def get_preds_vs_background(
+    M: keras.Model,
+    target_ds: Dataset,
+    background_ds: Dataset,
+    batch_size: int,
+    **kwargs,
+) -> pd.DataFrame:
+    """Computes z-score predictions against a background distribution."""
+    t_gen = BatchedResponseGenerator(target_ds, batch_size)
+    t_preds = M.predict(t_gen.flow_from_dataset(target_ds), verbose=0)
+    t_pred_df = make_pred_df(target_ds, t_preds, **dict(kwargs, _bg=False))
+
+    b_gen = BatchedResponseGenerator(background_ds, batch_size)
+    b_preds = M.predict(b_gen.flow_from_dataset(background_ds), verbose=0)
+    b_pred_df = make_pred_df(background_ds, b_preds, **dict(kwargs, _bg=True))
+
+    pred_df = pd.concat([t_pred_df, b_pred_df])
+    pred_df["y_pred"] = pred_df.groupby("drug_id")["y_pred"].transform(stats.zscore)
+    pred_df = pred_df[pred_df["_bg"] == False].drop(columns="_bg")
+
+    return pred_df
+
+
 def data_preprocessor(
     cfg: DictConfig,
     cell_train_ds: Dataset,
@@ -90,10 +114,9 @@ def data_preprocessor(
     x_cell = exp_enc.data.loc[train_cell_ids + val_cell_ids]
     x_pdmc = exp_enc.data.loc[pdmc_ids]
 
-    # for transfer learning, we normalize independently across domains
+    # for transfer learning, we scale the domains independently
     x_cell[:] = StandardScaler().fit(x_cell_train).transform(x_cell)
     x_pdmc[:] = StandardScaler().fit_transform(x_pdmc)
-
     exp_enc.data = pd.concat([x_cell, x_pdmc])
 
     # normalize the drug responses
@@ -155,8 +178,13 @@ def xfer_model_trainer(
         _ = xfer_model.fit(other_seq, epochs=hparams.epochs, verbose=0)
         xfer_weights[this_pdmc_id] = xfer_model.get_weights()
 
-        xfer_preds: np.ndarray = xfer_model.predict(this_seq, verbose=0)
-        pred_dfs.append(make_pred_df(this_ds, xfer_preds, model="xfer"))
+        pred_dfs.append(
+            get_preds_vs_background(
+                xfer_model, this_ds, other_ds, batch_size, model="xfer"
+            )
+        )
+        # xfer_preds: np.ndarray = xfer_model.predict(this_seq, verbose=0)
+        # pred_dfs.append(make_pred_df(this_ds, xfer_preds, model="xfer"))
 
     xfer_model.set_weights(base_weights)
     pred_df = pd.concat(pred_dfs)
@@ -164,9 +192,70 @@ def xfer_model_trainer(
     return xfer_model, xfer_weights, pred_df
 
 
+def finetune_model_builder(cfg: DictConfig, model: keras.Model) -> keras.Model:
+    """Configures the model for fune-tuning."""
+    hparams = cfg.finetune.hyper
+
+    for layer in model.layers:
+        layer.trainable = True
+
+    model.compile(
+        optimizer=keras.optimizers.Adam(learning_rate=hparams.learning_rate),
+        loss="mean_squared_error",
+        metrics=[tf_metrics.pearson],
+    )
+
+    return model
+
+
+def finetune_model_trainer(
+    cfg: DictConfig, model: keras.Model, pdmc_ds: Dataset, xfer_weights: WeightsDict
+) -> t.Tuple[keras.Model, WeightsDict, pd.DataFrame]:
+    """Runs finetuning loop for each PDMC."""
+    hparams = cfg.finetune.hyper
+    batch_size = pdmc_ds.size if hparams.batch_size is None else hparams.batch_size
+
+    base_weights = model.get_weights()
+    pdmc_gen = BatchedResponseGenerator(pdmc_ds, batch_size=batch_size)
+    pdmc_ids = sorted(list(set(pdmc_ds.cell_ids)))
+
+    pred_dfs = []
+    ft_weights = {}
+    for this_pdmc_id in tqdm(pdmc_ids):
+        model.set_weights(xfer_weights[this_pdmc_id])
+
+        this_prefix = this_pdmc_id[:6]
+        other_pdmc_ids = [x for x in pdmc_ids if not x.startswith(this_prefix)]
+
+        this_ds = pdmc_ds.select_cells([this_pdmc_id], name="this")
+        this_seq = pdmc_gen.flow_from_dataset(this_ds)
+
+        other_ds = pdmc_ds.select_cells(other_pdmc_ids, name="other")
+        other_seq = pdmc_gen.flow_from_dataset(other_ds, shuffle=True, seed=1441)
+
+        _ = model.fit(other_seq, epochs=hparams.epochs, verbose=0)
+        ft_weights[this_pdmc_id] = model.get_weights()
+
+        pred_dfs.append(
+            get_preds_vs_background(model, this_ds, other_ds, batch_size, model="ft")
+        )
+        # preds: np.ndarray = model.predict(this_seq, verbose=0)
+        # pred_dfs.append(make_pred_df(this_ds, preds, model="ft"))
+
+    model.set_weights(base_weights)
+    pred_df = pd.concat(pred_dfs)
+
+    return model, ft_weights, pred_df
+
+
 def screenahead_model_builder(cfg: DictConfig, model: keras.Model) -> keras.Model:
     """Configures the model for ScreenAhead."""
     hparams = cfg.screenahead.hyper
+
+    for layer in model.layers:
+        prefixes = ("mol", "exp", "ont", "mut", "cnv")
+        if layer.name.startswith(prefixes):
+            layer.trainable = False
 
     model.compile(
         optimizer=keras.optimizers.Adam(learning_rate=hparams.learning_rate),
@@ -179,10 +268,10 @@ def screenahead_model_builder(cfg: DictConfig, model: keras.Model) -> keras.Mode
 
 def screenahead_model_trainer(
     cfg: DictConfig,
-    sa_model: keras.Model,
+    model: keras.Model,
     cell_ds: Dataset,
     pdmc_ds: Dataset,
-    xfer_weights: WeightsDict,
+    ft_weights: WeightsDict,
 ) -> t.Tuple[keras.Model, WeightsDict, pd.DataFrame]:
     """Runs the ScreenAhead training loop."""
     opts = cfg.screenahead.opt
@@ -191,18 +280,23 @@ def screenahead_model_trainer(
     batch_size = pdmc_ds.size if hparams.batch_size is None else hparams.batch_size
 
     selector_cls: DrugSelectorBase = SELECTORS[opts.selector]
-    selector = selector_cls(cell_ds, seed=opts.seed)
+    # selector = selector_cls(cell_ds, seed=opts.seed)
+    selector = selector_cls(pdmc_ds, seed=opts.seed)
 
-    base_weights = sa_model.get_weights()
+    base_weights = model.get_weights()
     pdmc_gen = BatchedResponseGenerator(pdmc_ds, batch_size=batch_size)
     pdmc_ids = sorted(list(set(pdmc_ds.cell_ids)))
 
     sa_pred_dfs = []
     sa_weights = {}
     for this_pdmc_id in tqdm(pdmc_ids):
-        sa_model.set_weights(xfer_weights[this_pdmc_id])
+        model.set_weights(ft_weights[this_pdmc_id])
+
+        this_prefix = this_pdmc_id[:6]
+        other_pdmc_ids = [x for x in pdmc_ids if not x.startswith(this_prefix)]
 
         this_ds = pdmc_ds.select_cells([this_pdmc_id], name="this")
+        other_ds = pdmc_ds.select_cells(other_pdmc_ids, name="other")
 
         choices = set(this_ds.drug_ids)
         screen_drugs = selector.select(opts.n_drugs, choices=choices)
@@ -216,16 +310,21 @@ def screenahead_model_trainer(
             this_screen_ds, shuffle=True, seed=1441
         )
 
-        _ = sa_model.fit(this_screen_seq, epochs=hparams.epochs, verbose=0)
-        sa_weights[this_pdmc_id] = sa_model.get_weights()
+        _ = model.fit(this_screen_seq, epochs=hparams.epochs, verbose=0)
+        sa_weights[this_pdmc_id] = model.get_weights()
 
-        sa_preds: np.ndarray = sa_model.predict(this_holdout_seq, verbose=0)
-        sa_pred_dfs.append(make_pred_df(this_holdout_ds, sa_preds, model="screen"))
+        sa_pred_dfs.append(
+            get_preds_vs_background(
+                model, this_ds, other_ds, batch_size, model="screen"
+            )
+        )
+        # sa_preds: np.ndarray = model.predict(this_holdout_seq, verbose=0)
+        # sa_pred_dfs.append(make_pred_df(this_holdout_ds, sa_preds, model="screen"))
 
-    sa_model.set_weights(base_weights)
+    model.set_weights(base_weights)
     sa_pred_df = pd.concat(sa_pred_dfs)
 
-    return sa_model, sa_weights, sa_pred_df
+    return model, sa_weights, sa_pred_df
 
 
 @hydra.main(
@@ -271,19 +370,27 @@ def run_experiment(cfg: DictConfig) -> None:
         cfg, xfer_model=xfer_model, pdmc_ds=pdmc_ds
     )
 
+    log.info(f"Configuring {model_name} for fine-tuning...")
+    ft_model = finetune_model_builder(cfg, model=xfer_model)
+
+    log.info(f"Running fine-tuning loop...")
+    ft_model, ft_weights, ft_pred_df = finetune_model_trainer(
+        cfg, model=ft_model, pdmc_ds=pdmc_ds, xfer_weights=xfer_weights
+    )
+
     log.info(f"Configuring {model_name} for ScreenAhead...")
-    sa_model = screenahead_model_builder(cfg, model=xfer_model)
+    sa_model = screenahead_model_builder(cfg, model=ft_model)
 
     log.info(f"Running screenahead loop...")
     sa_model, _, sa_pred_df = screenahead_model_trainer(
         cfg,
-        sa_model=sa_model,
+        model=sa_model,
         cell_ds=cell_train_ds,
         pdmc_ds=pdmc_ds,
-        xfer_weights=xfer_weights,
+        ft_weights=ft_weights,
     )
 
-    pred_df = pd.concat([xfer_pred_df, sa_pred_df])
+    pred_df = pd.concat([xfer_pred_df, ft_pred_df, sa_pred_df])
     pred_df.to_csv("predictions.csv", index=False)
 
 

@@ -29,6 +29,7 @@ DRUG_RESP_COLUMN_MAPPER = {
     "DRUG_NAME": "drug_name",
     "SANGER_MODEL_ID": "model_id",
     "LN_IC50": "ln_ic50",
+    "AUC": "auc",
 }
 
 INVALID_PUBCHEM_IDS = ("several", "none", "None")
@@ -90,7 +91,9 @@ def load_gdsc_data(
     return GDSCData(resp_data, meta_data)
 
 
-def clean_gdsc_data(data: GDSCData) -> GDSCData:
+def clean_gdsc_data(
+    data: GDSCData, gr_metric: str = "ln_ic50", log_transform: bool = False
+) -> GDSCData:
     """Harmonizes the GDSCv2 data.
 
     Parameters
@@ -122,12 +125,20 @@ def clean_gdsc_data(data: GDSCData) -> GDSCData:
         how="inner",
     )
 
+    gr_labels = data.resp[gr_metric]
+    if log_transform:
+        gr_labels = np.log(gr_labels)
+
+    data.resp["label"] = gr_labels
+
     return data
 
 
 def load_and_clean_gdsc_data(
     resp_path: FilePathOrBuff | t.Iterable[FilePathOrBuff],
     meta_path: FilePathOrBuff,
+    gr_metric: str = "ln_ic50",
+    log_transform: bool = False,
 ) -> GDSCData:
     """Loads and cleans the GDSC data.
 
@@ -141,5 +152,7 @@ def load_and_clean_gdsc_data(
         The cleaned GDSCData object.
     """
     gdsc_data = load_gdsc_data(resp_path, meta_path)
-    gdsc_data = clean_gdsc_data(gdsc_data)
+    gdsc_data = clean_gdsc_data(
+        gdsc_data, gr_metric=gr_metric, log_transform=log_transform
+    )
     return gdsc_data

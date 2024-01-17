@@ -15,6 +15,7 @@ import random
 
 import numpy as np
 import tensorflow as tf
+import tensorflow.keras.backend as K  # pyright: ignore[reportMissingImports]
 
 np.random.seed(1771)
 random.seed(1771)
@@ -27,6 +28,13 @@ log = logging.getLogger(__name__)
 
 
 PIPELINES = {"ScreenDL": "screendl"}
+
+
+def configure_session() -> None:
+    """Enable memory growth to avoid mem leak between hydra jobs."""
+    gpu_devices = tf.config.experimental.list_physical_devices("GPU")
+    for device in gpu_devices:
+        tf.config.experimental.set_memory_growth(device, True)
 
 
 @hydra.main(
@@ -46,8 +54,14 @@ def run_hp(cfg: DictConfig) -> float:
 
     _, scores, _ = module.run_pipeline(cfg)
 
-    return scores["val"]["value"]
+    # return scores["val"]["value"]
+    return scores["val"]["mean_drug_pcc"]
 
 
 if __name__ == "__main__":
+    configure_session()
     run_hp()
+    try:
+        K.clear_session()
+    except AttributeError:
+        pass

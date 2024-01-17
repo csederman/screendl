@@ -33,6 +33,7 @@ dataset:
         - "pdx"
       include_all_hci_drugs: false
       min_samples_per_drug: 5
+      use_gr50: false
 
 splits:
   dir: "${_root_}/inputs/${dataset.name}/splits"

@@ -16,27 +16,20 @@ import random
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+import tensorflow.keras.backend as K  # pyright: ignore[reportMissingImports]
 import typing as t
 
 np.random.seed(1771)
 random.seed(1771)
 tf.random.set_seed(1771)
 
-from tensorflow import keras
 from omegaconf import DictConfig
 from cdrpy.mapper import BatchedResponseGenerator
-from cdrpy.metrics import tf_metrics
 from cdrpy.data.datasets import Dataset
 
-from screendl.utils.evaluation import make_pred_df
-from screendl.utils.drug_selectors import (
-    DrugSelectorType,
-    AgglomerativeDrugSelector,
-    DrugSelectorBase,
-    KMeansDrugSelector,
-    PrincipalDrugSelector,
-    RandomDrugSelector,
-)
+from screendl.utils import model_utils
+from screendl.utils import evaluation as eval_utils
+from screendl.utils.drug_selectors import SELECTORS
 
 
 log = logging.getLogger(__name__)
@@ -45,43 +38,44 @@ log = logging.getLogger(__name__)
 PIPELINES = {"ScreenDL": "screendl"}
 
 
-SELECTORS: t.Dict[str, DrugSelectorType] = {
-    "agglomerative": AgglomerativeDrugSelector,
-    "kmeans": KMeansDrugSelector,
-    "principal": PrincipalDrugSelector,
-    "random": RandomDrugSelector,
-}
+# def generate_all_predictions(
+#     cfg: DictConfig,
+#     model: keras.Model,
+#     datasets: t.Iterable[Dataset],
+#     cell_id: str,
+# ) -> pd.DataFrame:
+#     """Generate predictions for all observations."""
+#     pred_dfs = []
+#     for ds in datasets:
+#         gen = BatchedResponseGenerator(ds, cfg.model.hyper.batch_size)
+#         seq = gen.flow_from_dataset(ds)
+#         preds: np.ndarray = model.predict(seq, verbose=0)
+#         pred_dfs.append(
+#             # make_pred_df(
+#             #     ds,
+#             #     preds,
+#             #     split_group="test",
+#             #     model="ScreenDL-SA",
+#             #     split_id=cfg.dataset.split.id,
+#             #     split_type=cfg.dataset.split.name,
+#             #     norm_method=cfg.dataset.preprocess.norm,
+#             # )
+#             pd.DataFrame(
+#                 {
+#                     "cell_id": ds.cell_ids,
+#                     "drug_id": ds.drug_ids,
+#                     "y_true": ds.labels,
+#                     "y_pred": preds.reshape(-1),
+#                     "split": ds.name,
+#                 }
+#             )
+#         )
 
+#     pred_df = pd.concat(pred_dfs)
+#     pred_df["fold"] = cfg.dataset.split.id
+#     pred_df["sa_fold"] = cell_id
 
-def generate_all_predictions(
-    cfg: DictConfig,
-    model: keras.Model,
-    datasets: t.Iterable[Dataset],
-    cell_id: str,
-) -> pd.DataFrame:
-    """Generate predictions for all observations."""
-    pred_dfs = []
-    for ds in datasets:
-        gen = BatchedResponseGenerator(ds, cfg.model.hyper.batch_size)
-        seq = gen.flow_from_dataset(ds)
-        preds: np.ndarray = model.predict(seq, verbose=0)
-        pred_dfs.append(
-            pd.DataFrame(
-                {
-                    "cell_id": ds.cell_ids,
-                    "drug_id": ds.drug_ids,
-                    "y_true": ds.labels,
-                    "y_pred": preds.reshape(-1),
-                    "split": ds.name,
-                }
-            )
-        )
-
-    pred_df = pd.concat(pred_dfs)
-    pred_df["fold"] = cfg.dataset.split.id
-    pred_df["sa_fold"] = cell_id
-
-    return pred_df
+#     return pred_df
 
 
 @hydra.main(
@@ -99,13 +93,7 @@ def run_sa(cfg: DictConfig) -> float:
     module_name = f"screendl.pipelines.basic.{module_file}"
     module = importlib.import_module(module_name)
 
-    model, _, ds_dict = module.run_pipeline(cfg)
-
-    # configure the model for ScreenAhead
-    layer_prefixes = ("mol", "exp", "ont", "mut", "cnv")
-    for layer in model.layers:
-        if layer.name.startswith(layer_prefixes):
-            layer.trainable = False
+    base_model, _, ds_dict = module.run_pipeline(cfg)
 
     opts = cfg.screenahead.opt
     hparams = cfg.screenahead.hyper
@@ -113,25 +101,15 @@ def run_sa(cfg: DictConfig) -> float:
     # NOTE: some drug selection algorithms require un-normalized responses
     train_cell_ids = set(ds_dict["train"].cell_ids)
     selection_ds = ds_dict["full"].select_cells(train_cell_ids)
-    selector_cls: DrugSelectorBase = SELECTORS[opts.selector]
-    selector = selector_cls(selection_ds, seed=opts.seed)
+    selector = SELECTORS[opts.selector](selection_ds, seed=opts.seed)
 
     test_ds: Dataset = ds_dict["test"]
-    test_gen = BatchedResponseGenerator(test_ds, batch_size=hparams.batch_size)
+    test_gen = BatchedResponseGenerator(test_ds, 256)
 
-    base_weights = model.get_weights()
-
-    model.compile(
-        optimizer=keras.optimizers.Adam(learning_rate=hparams.learning_rate),
-        loss="mean_squared_error",
-        metrics=[tf_metrics.pearson],
-    )
+    base_weights = base_model.get_weights()
 
     pred_dfs = []
     for cell_id in set(test_ds.cell_ids):
-        # restor the weights before each iteration
-        model.set_weights(base_weights)
-
         cell_ds: Dataset = test_ds.select_cells([cell_id])
         choices = set(cell_ds.drug_ids)
 
@@ -145,34 +123,45 @@ def run_sa(cfg: DictConfig) -> float:
 
         screen_drugs = selector.select(opts.n_drugs, choices=choices)
         screen_ds = cell_ds.select_drugs(screen_drugs)
-        screen_seq = test_gen.flow_from_dataset(screen_ds, shuffle=True)
 
         holdout_ds = cell_ds.select_drugs(choices.difference(screen_drugs))
         holdout_seq = test_gen.flow_from_dataset(holdout_ds)
 
-        model.fit(screen_seq, epochs=hparams.epochs, verbose=0)
+        if "mr" in screen_ds.cell_encoders:
+            # update the mean response encoder with the estimate from screening
+            mr_prime = screen_ds.cell_encoders["mr"].encode(cell_id)[0]
+            mr_est = screen_ds.obs["label"].mean()
+            screen_ds.cell_encoders["mr"].data.loc[cell_id, "value"] = mr_est
 
-        if cfg.screenahead.io.predict_all:
-            pred_df = generate_all_predictions(
-                cfg,
-                model=model,
-                datasets=[ds_dict["train"], ds_dict["val"], test_ds],
-                cell_id=cell_id,
+        sa_model = model_utils.fit_screenahead_model(
+            base_model,
+            screen_ds,
+            batch_size=hparams.batch_size,
+            epochs=hparams.epochs,
+            learning_rate=hparams.learning_rate,
+            frozen_layer_prefixes=("mol", "exp", "ont", "mut", "cnv", "mr"),
+            training=False,
+        )
+
+        preds = sa_model.predict(holdout_seq, verbose=0)
+        pred_dfs.append(
+            eval_utils.make_pred_df(
+                holdout_ds,
+                preds,
+                split_group="test",
+                model="ScreenDL-SA",
+                split_id=cfg.dataset.split.id,
+                split_type=cfg.dataset.split.name,
+                norm_method=cfg.dataset.preprocess.norm,
             )
-            pred_dfs.append(pred_df)
-        else:
-            preds: np.ndarray = model.predict(holdout_seq, verbose=0)
-            pred_dfs.append(
-                make_pred_df(
-                    holdout_ds,
-                    preds,
-                    split_group="test",
-                    model="ScreenDL-SA",
-                    split_id=cfg.dataset.split.id,
-                    split_type=cfg.dataset.split.name,
-                    norm_method=cfg.dataset.preprocess.norm,
-                )
-            )
+        )
+
+        if "mr" in screen_ds.cell_encoders:
+            screen_ds.cell_encoders["mr"].data.loc[cell_id, "value"] = mr_prime
+
+        # restore the weights before each iteration
+        base_model.set_weights(base_weights)
+        K.clear_session()
 
     pred_df = pd.concat(pred_dfs)
     pred_df.to_csv("predictions_sa.csv", index=False)
@@ -180,3 +169,4 @@ def run_sa(cfg: DictConfig) -> float:
 
 if __name__ == "__main__":
     run_sa()
+    K.clear_session()

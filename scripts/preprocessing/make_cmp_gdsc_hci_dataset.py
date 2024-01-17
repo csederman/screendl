@@ -45,7 +45,12 @@ def make_dataset(cfg: DictConfig) -> t.Tuple[cmp.CMPData, gdsc.GDSCData, hci.HCI
     )
 
     log.info("Loading GDSC response data...")
-    gdsc_data = gdsc.load_and_clean_gdsc_data(paths.gdsc.resp, paths.gdsc.meta)
+    gdsc_data = gdsc.load_and_clean_gdsc_data(
+        paths.gdsc.resp,
+        paths.gdsc.meta,
+        gr_metric=params.gdsc.gr_metric,
+        log_transform=params.gdsc.log_transform,
+    )
 
     log.info("Harmonizing GDSC and Cell Model Passports...")
     cmp_data, gdsc_data = harmonize_cmp_gdsc_data(cmp_data, gdsc_data)
@@ -59,6 +64,8 @@ def make_dataset(cfg: DictConfig) -> t.Tuple[cmp.CMPData, gdsc.GDSCData, hci.HCI
         mut_path=paths.hci.mut,
         model_types=params.hci.pdmc_model_types,
         min_samples_per_drug=params.hci.min_samples_per_drug,
+        gr_metric=params.hci.gr_metric,
+        log_transform=params.hci.log_transform,
     )
 
     log.info("Harmonizing GDSC, Cell Model Passports, and HCI data...")
@@ -114,19 +121,23 @@ def make_dataset(cfg: DictConfig) -> t.Tuple[cmp.CMPData, gdsc.GDSCData, hci.HCI
     return cmp_data, gdsc_data, hci_data
 
 
-def make_labels(cfg: DictConfig, resp_data: pd.DataFrame) -> pd.DataFrame:
+def make_labels(
+    cfg: DictConfig,
+    resp_data: pd.DataFrame,
+) -> pd.DataFrame:
     """Creates the target labels."""
     out_dir = Path(cfg.inputs.dir)
     out_dir.mkdir(exist_ok=True, parents=True)
 
-    col_map = {"model_id": "cell_id", "drug_name": "drug_id", "ln_ic50": "label"}
-    resp_data_valid = resp_data[
-        ~resp_data["ln_ic50"].isin(gdsc.INVALID_RESPONSE_VALUES)
-    ]
+    col_map = {"model_id": "cell_id", "drug_name": "drug_id"}
+
+    is_valid = ~resp_data["label"].isin(gdsc.INVALID_RESPONSE_VALUES)
+    resp_data_valid = resp_data[is_valid].copy()
     resp_data_valid["id"] = range(resp_data_valid.shape[0])
-    resp_data_valid = resp_data_valid[["id", *col_map]].rename(columns=col_map)
+    resp_data_valid = resp_data_valid[["id", *col_map, "label"]].rename(columns=col_map)
 
     # save the results
+    # FIXME: need to fix the name here
     resp_data_valid.to_csv(out_dir / "LabelsLogIC50.csv", index=False)
 
     return resp_data_valid

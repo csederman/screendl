@@ -37,14 +37,17 @@ def make_dataset(cfg: DictConfig) -> t.Tuple[cmp.CMPData, gdsc.GDSCData]:
         meta_path=paths.cell_info,
         cnv_path=paths.cell_cnv,
         vcf_dir=paths.cell_vcf,
-        min_cells_per_cancer_type=params.min_cells_per_cancer_type,
-        required_info_columns=params.required_info_columns,
-        cancer_type_blacklist=params.cancer_type_blacklist,
+        min_cells_per_cancer_type=params.cmp.min_cells_per_cancer_type,
+        required_info_columns=params.cmp.required_info_columns,
+        cancer_type_blacklist=params.cmp.cancer_type_blacklist,
     )
 
     log.info("Loading GDSC data...")
     gdsc_data = gdsc.load_and_clean_gdsc_data(
-        resp_path=paths.drug_resp, meta_path=paths.drug_info
+        resp_path=paths.drug_resp,
+        meta_path=paths.drug_info,
+        gr_metric=params.gdsc.gr_metric,
+        log_transform=params.gdsc.log_transform,
     )
 
     log.info("Harmonizing GDSC and Cell Model Passports...")
@@ -84,12 +87,13 @@ def make_labels(cfg: DictConfig, resp_data: pd.DataFrame) -> pd.DataFrame:
     out_dir = Path(cfg.inputs.dir)
     out_dir.mkdir(exist_ok=True, parents=True)
 
-    col_map = {"model_id": "cell_id", "drug_name": "drug_id", "ln_ic50": "label"}
-    resp_data_valid = resp_data[
-        ~resp_data["ln_ic50"].isin(gdsc.INVALID_RESPONSE_VALUES)
-    ]
+    col_map = {"model_id": "cell_id", "drug_name": "drug_id"}
+
+    is_valid = ~resp_data["label"].isin(gdsc.INVALID_RESPONSE_VALUES)
+    resp_data_valid = resp_data[is_valid].copy()
+
     resp_data_valid["id"] = range(resp_data_valid.shape[0])
-    resp_data_valid = resp_data_valid[["id", *col_map]].rename(columns=col_map)
+    resp_data_valid = resp_data_valid[["id", *col_map, "label"]].rename(columns=col_map)
 
     # save the results
     resp_data_valid.to_csv(out_dir / "LabelsLogIC50.csv", index=False)

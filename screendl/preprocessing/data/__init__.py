@@ -131,8 +131,8 @@ def harmonize_cmp_gdsc_hci_data(
             hci_data.resp["drug_name"].isin(gdsc_data.meta["drug_name"])
         ]
 
-    gdsc_data.resp = gdsc_data.resp[["model_id", "drug_name", "ln_ic50"]]
-    hci_data.resp = hci_data.resp[["model_id", "drug_name", "ln_ic50"]]
+    gdsc_data.resp = gdsc_data.resp[["model_id", "drug_name", "label"]]
+    hci_data.resp = hci_data.resp[["model_id", "drug_name", "label"]]
 
     gdsc_data.meta = gdsc_data.meta[["drug_name", "pubchem_id"]]
     hci_data.drug_meta = hci_data.drug_meta[["drug_name", "pubchem_id"]]
