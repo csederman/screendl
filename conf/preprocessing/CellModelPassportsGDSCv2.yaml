@@ -2,7 +2,7 @@ _root_: "/scratch/ucgd/lustre-work/marth/u0871891/datastore"
 
 dataset:
   dir: "${_root_}/datasets/${dataset.name}"
-  name: CellModelPassportsGDSCv2
+  name: CellModelPassportsGDSCv2AUC
   save: True
   paths:
     drug_resp: "${_root_}/raw/GDSC/GDSC2_fitted_dose_response_24Jul22.xlsx"
@@ -15,11 +15,15 @@ dataset:
 
     pubchem_cache: "${_root_}/raw/PubCHEM/properties.json"
   params:
-    required_info_columns:
-      - ploidy_wes
-      - cancer_type
-    cancer_type_blacklist: null
-    min_cells_per_cancer_type: 20
+    cmp:
+      required_info_columns:
+        - ploidy_wes
+        - cancer_type
+      cancer_type_blacklist: null
+      min_cells_per_cancer_type: 20
+    gdsc:
+      gr_metric: "auc"
+      log_transform: false
 
 splits:
   dir: "${_root_}/inputs/${dataset.name}/splits"
@@ -72,5 +76,5 @@ inputs:
         - Other Sarcomas
         - Non-Cancerous
         - Unknown
-      mol_n_bits: 1024
-      mol_radius: 2
+      mol_n_bits: 512
+      mol_radius: 3

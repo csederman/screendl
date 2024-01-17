@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 import random
 
 import numpy as np
@@ -31,13 +32,17 @@ __all__ = [
     "AgglomerativeDrugSelector",
     "PrincipalDrugSelector",
     "MeanResponseSelector",
+    "UniformDrugSelector",
     "DrugSelectorType",
 ]
 
 
+Seed = t.Union[int, float, None]
+
+
 def get_response_matrix(D: Dataset, impute: bool = True) -> pd.DataFrame:
     """Converts dataset observations into a drug response matrix."""
-    M = D.obs.pivot(index="drug_id", columns="cell_id", values="label")
+    M = D.obs.pivot_table(index="drug_id", columns="cell_id", values="label")
     if impute:
         M[:] = KNNImputer(n_neighbors=3).fit_transform(M)
     return M
@@ -65,8 +70,9 @@ class RandomDrugSelector(DrugSelectorBase):
         seed: Optional seed for random number generation.
     """
 
-    def __init__(self, D: Dataset, seed: int | float | None = None) -> None:
+    def __init__(self, D: Dataset, seed: Seed = None, name: str | None = None) -> None:
         self.dataset = D
+        self.name = name
         self.response_mat = get_response_matrix(self.dataset)
         self._rs, _ = _seeded_state(seed)
 
@@ -93,6 +99,58 @@ class RandomDrugSelector(DrugSelectorBase):
         return self._rs.sample(list(M.index), n)
 
 
+class UniformDrugSelector(DrugSelectorBase):
+    """Uniform drug selection along metadata fields."""
+
+    def __init__(self, D: Dataset, seed: Seed = None, name: str | None = None) -> None:
+        if D.drug_meta is None:
+            raise ValueError("drug selector requires drug metadata")
+        self.dataset = D
+        self.name = name
+        self.response_mat = get_response_matrix(self.dataset)
+        self._rs, _ = _seeded_state(seed)
+
+    def select(
+        self,
+        n: int,
+        choices: t.Iterable[str] | None = None,
+        field: str = "target_pathway",
+    ) -> t.List[str]:
+        """Uniformly sample drugs along metadata groupings."""
+        if not field in self.dataset.drug_meta.columns:
+            raise ValueError("field must be a valid metadata column")
+
+        drug_meta = self.dataset.drug_meta.copy()
+        if choices is not None:
+            drug_meta = drug_meta[drug_meta.index.isin(choices)]
+
+        drug_groups = (
+            drug_meta.rename_axis(index="drug_id")
+            .reset_index()
+            .groupby(field)["drug_id"]
+            .apply(list)
+            .to_dict()
+        )
+
+        sorted_groups = sorted(
+            drug_groups, key=lambda k: len(drug_groups[k]), reverse=True
+        )
+
+        selected_drugs = []
+        for key in itertools.cycle(sorted_groups):
+            drugs_for_group: list = drug_groups[key]
+            if not drugs_for_group:
+                # skip exhausted groups
+                continue
+            selected_drug = self._rs.choice(drugs_for_group)
+            selected_drugs.append(selected_drug)
+            drugs_for_group.remove(selected_drug)
+            if len(selected_drugs) == n:
+                break
+
+        return selected_drugs
+
+
 class MeanResponseSelector(DrugSelectorBase):
     """Selects the drugs most predictive of a cell line's mean response.
 
@@ -102,8 +160,9 @@ class MeanResponseSelector(DrugSelectorBase):
         seed: Ignored, exists for compatability.
     """
 
-    def __init__(self, D: Dataset, seed: int | float | None = None) -> None:
+    def __init__(self, D: Dataset, seed: Seed = None, name: str | None = None) -> None:
         self.dataset = D
+        self.name = name
         self.response_mat = get_response_matrix(self.dataset)
 
     def select(
@@ -143,8 +202,9 @@ class KMeansDrugSelector(DrugSelectorBase):
         seed: Optional seed for random number generation.
     """
 
-    def __init__(self, D: Dataset, seed: int | float | None = None) -> None:
+    def __init__(self, D: Dataset, seed: Seed = None, name: str | None = None) -> None:
         self.dataset = D
+        self.name = name
         self.response_mat = get_response_matrix(self.dataset)
         self._rs, self._np_rs = _seeded_state(seed)
 
@@ -190,8 +250,9 @@ class AgglomerativeDrugSelector(DrugSelectorBase):
         seed: Optional seed for random number generation.
     """
 
-    def __init__(self, D: Dataset, seed: int | float | None = None) -> None:
+    def __init__(self, D: Dataset, seed: Seed = None, name: str | None = None) -> None:
         self.dataset = D
+        self.name = name
         self.response_mat = get_response_matrix(self.dataset)
         self._rs, self._np_rs = _seeded_state(seed)
 
@@ -244,8 +305,9 @@ class PrincipalDrugSelector(DrugSelectorBase):
                15th ACM International Conference on Multimedia, 301-304, 2007.
     """
 
-    def __init__(self, D: Dataset, seed: int | float | None = None) -> None:
+    def __init__(self, D: Dataset, seed: Seed = None, name: str | None = None) -> None:
         self.dataset = D
+        self.name = name
         self.response_mat = get_response_matrix(self.dataset)
         self._rs, self._np_rs = _seeded_state(seed)
 
@@ -345,4 +407,14 @@ DrugSelectorType = t.Union[
     t.Type[AgglomerativeDrugSelector],
     t.Type[PrincipalDrugSelector],
     t.Type[MeanResponseSelector],
+    t.Type[UniformDrugSelector],
 ]
+
+
+SELECTORS: t.Dict[str, DrugSelectorType] = {
+    "agglomerative": AgglomerativeDrugSelector,
+    "kmeans": KMeansDrugSelector,
+    "principal": PrincipalDrugSelector,
+    "random": RandomDrugSelector,
+    "uniform": UniformDrugSelector,
+}

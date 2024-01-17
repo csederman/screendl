@@ -20,14 +20,11 @@ from tensorflow import keras
 
 from cdrpy.data.datasets import Dataset
 from cdrpy.data.preprocess import normalize_responses
+from cdrpy.feat.encoders import PandasEncoder
 from cdrpy.mapper import BatchedResponseGenerator
 
 from screendl import model as screendl
 from screendl.utils.evaluation import make_pred_df, get_eval_metrics, ScoreDict
-
-
-if t.TYPE_CHECKING:
-    from cdrpy.feat.encoders import PandasEncoder
 
 
 log = logging.getLogger(__name__)
@@ -59,11 +56,21 @@ def data_loader(cfg: DictConfig) -> Dataset:
         ont_path=ont_path,
     )
 
+    cell_meta = None
+    if hasattr(paths, "cell_meta"):
+        cell_meta = pd.read_csv(paths.cell_meta, index_col=0)
+
+    drug_meta = None
+    if hasattr(paths, "drug_meta"):
+        drug_meta = pd.read_csv(paths.drug_meta, index_col=0)
+
     return Dataset.from_csv(
         paths.labels,
-        name=cfg.dataset.name,
         cell_encoders=cell_encoders,
         drug_encoders=drug_encoders,
+        cell_meta=cell_meta,
+        drug_meta=drug_meta,
+        name=cfg.dataset.name,
     )
 
 
@@ -136,6 +143,20 @@ def data_preprocessor(
         norm_method=cfg.dataset.preprocess.norm,
     )
 
+    if cfg.model.feat.use_mr:
+        train_mr = (
+            train_dataset.obs.groupby("cell_id")["label"].mean().to_frame(name="value")
+        )
+        train_mr[:] = StandardScaler().fit_transform(train_mr)
+
+        val_cell_ids = list(set(val_dataset.cell_ids))
+        test_cell_ids = list(set(test_dataset.cell_ids))
+        val_mr = pd.DataFrame({"value": 0}, index=val_cell_ids)
+        test_mr = pd.DataFrame({"value": 0}, index=test_cell_ids)
+
+        mr_data = pd.concat([train_mr, val_mr, test_mr])
+        train_dataset.cell_encoders["mr"] = PandasEncoder(mr_data, name="mr")
+
     # val_dataset.cell_encoders = train_dataset.cell_encoders
     # test_dataset.cell_encoders = train_dataset.cell_encoders
 
@@ -184,8 +205,11 @@ def model_builder(cfg: DictConfig, train_dataset: Dataset) -> keras.Model:
         ont_hidden_dims=params.hyper.hidden_dims.ont,
         mol_hidden_dims=params.hyper.hidden_dims.mol,
         shared_hidden_dims=params.hyper.hidden_dims.shared,
+        use_mr=params.feat.use_mr,
+        use_noise=params.hyper.use_noise,
         use_batch_norm=params.hyper.use_batch_norm,
         use_dropout=params.hyper.use_dropout,
+        noise_stddev=params.hyper.noise_stddev,
         dropout_rate=params.hyper.dropout_rate,
         activation=params.hyper.activation,
     )

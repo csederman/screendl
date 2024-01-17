@@ -22,7 +22,24 @@ def load_cell_features(
     cnv_path: str | Path | None = None,
     ont_path: str | Path | None = None,
 ) -> EncoderDict:
-    """Loads cell features for ScreenDL."""
+    """Loads cell/sample features for ScreenDL.
+
+    Parameters
+    ----------
+    exp_path : str | Path
+        Path to the raw gene expression .csv file.
+    mut_path : str | Path | None, optional
+        Path to the raw somatic mutations, by default None
+    cnv_path : str | Path | None, optional
+        Path to the raw copy number ratio data, by default None
+    ont_path : str | Path | None, optional
+        Path to the raw cancer type ontology data, by default None
+
+    Returns
+    -------
+    EncoderDict
+        Dictionary mapping of feature type to feature encoder.
+    """
     enc_dict = {}
 
     exp_mat = pd.read_csv(exp_path, index_col=0).astype("float32")

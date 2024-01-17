@@ -11,79 +11,20 @@ from tensorflow import keras
 from keras import Model
 from keras import layers
 
-
-class MLPBlock(layers.Layer):
-    """
-    FIXME: add get_config method for the layer for saving
-    """
-
-    def __init__(
-        self,
-        units: int,
-        name: str,
-        activation: t.Any = "relu",
-        use_batch_norm: bool = False,
-        use_dropout: bool = False,
-        dropout_rate: float = 0.1,
-        **kwargs,
-    ) -> None:
-        super(MLPBlock, self).__init__(name=name, **kwargs)
-        self.units = units
-        self.use_batch_norm = use_batch_norm
-        self.use_dropout = use_dropout
-        self.dropout_rate = dropout_rate
-        self._activation = activation
-
-        self.init_layers()
-
-    def init_layers(self) -> None:
-        """"""
-        self.dense = layers.Dense(self.units)
-
-        activation = keras.activations.get(self._activation)
-        self.activation = layers.Activation(activation)
-
-        if self.use_dropout:
-            self.dropout = layers.Dropout(self.dropout_rate)
-        else:
-            self.dropout = None
-
-        if self.use_batch_norm:
-            self.batch_norm = layers.BatchNormalization()
-        else:
-            self.batch_norm = None
-
-    def call(self, inputs: t.Any, training: bool = True, **kwargs) -> t.Any:
-        """"""
-        x = self.dense(inputs)
-
-        if training and self.batch_norm is not None:
-            x = self.batch_norm(x)
-
-        x = self.activation(x)
-
-        if training and self.dropout is not None:
-            x = self.dropout(x)
-
-        return x
-
-    def get_config(self) -> t.Dict[str, t.Any]:
-        """Returns config for serialization."""
-        return {
-            "units": self.units,
-            "use_batch_norm": self.use_batch_norm,
-            "use_dropout": self.use_dropout,
-            "dropout_rate": self.dropout_rate,
-        }
+from .layers import make_mlp_block
 
 
 def _create_expression_subnetwork(
     dim: int,
     norm_layer: layers.Normalization | None = None,
     hidden_dims: t.List[int] | None = None,
+    use_l2: bool = False,
+    use_noise: bool = False,
     use_batch_norm: bool = False,
     use_dropout: bool = False,
+    l2_factor: float = 0.01,
     dropout_rate: float = 0.1,
+    noise_stddev: float = 0.1,
     activation: t.Any = "relu",
 ) -> keras.Model:
     """Creates the expression subnetwork."""
@@ -101,16 +42,23 @@ def _create_expression_subnetwork(
     if hidden_dims is None:
         hidden_dims = [dim // 2, dim // 4, dim // 8]
 
+    if use_noise:
+        x = layers.GaussianNoise(noise_stddev, name="exp_noise")(x)
+
     n_hidden = len(hidden_dims)
     for i, units in enumerate(hidden_dims, 1):
-        x = MLPBlock(
+        mlp_block = make_mlp_block(
             units,
-            name=f"exp_mlp_{i}",
             activation=("tanh" if i == n_hidden else activation),
+            # activation=activation,
+            use_l2=use_l2,
             use_batch_norm=use_batch_norm,
             use_dropout=use_dropout,
+            l2_factor=l2_factor,
             dropout_rate=dropout_rate,
-        )(x)
+            name=f"exp_mlp_{i}",
+        )
+        x = mlp_block(x)
 
     return Model(inputs=input_layer, outputs=x, name="exp_subnet")
 
@@ -118,8 +66,10 @@ def _create_expression_subnetwork(
 def _create_mutation_subnetwork(
     dim: int,
     hidden_dims: t.List[int] | None = None,
+    use_l2: bool = False,
     use_batch_norm: bool = False,
     use_dropout: bool = False,
+    l2_factor: float = 0.01,
     dropout_rate: float = 0.1,
     activation: t.Any = "relu",
 ) -> keras.Model:
@@ -131,14 +81,18 @@ def _create_mutation_subnetwork(
 
     n_hidden = len(hidden_dims)
     for i, units in enumerate(hidden_dims, 1):
-        x = MLPBlock(
+        mlp_block = make_mlp_block(
             units,
-            name=f"mut_mlp_{i}",
             activation=("tanh" if i == n_hidden else activation),
+            # activation=activation,
+            use_l2=use_l2,
             use_batch_norm=use_batch_norm,
             use_dropout=use_dropout,
+            l2_factor=l2_factor,
             dropout_rate=dropout_rate,
-        )(x)
+            name=f"mut_mlp_{i}",
+        )
+        x = mlp_block(x)
 
     return Model(inputs=input_layer, outputs=x, name="mut_subnet")
 
@@ -146,8 +100,10 @@ def _create_mutation_subnetwork(
 def _create_ontology_subnetwork(
     dim: int,
     hidden_dims: t.List[int] | None = None,
+    use_l2: bool = False,
     use_batch_norm: bool = False,
     use_dropout: bool = False,
+    l2_factor: float = 0.01,
     dropout_rate: float = 0.1,
     activation: t.Any = "relu",
 ) -> keras.Model:
@@ -159,14 +115,18 @@ def _create_ontology_subnetwork(
 
     n_hidden = len(hidden_dims)
     for i, units in enumerate(hidden_dims, 1):
-        x = MLPBlock(
+        mlp_block = make_mlp_block(
             units,
-            name=f"ont_mlp_{i}",
             activation=("tanh" if i == n_hidden else activation),
+            # activation=activation,
+            use_l2=use_l2,
             use_batch_norm=use_batch_norm,
             use_dropout=use_dropout,
+            l2_factor=l2_factor,
             dropout_rate=dropout_rate,
-        )(x)
+            name=f"ont_mlp_{i}",
+        )
+        x = mlp_block(x)
 
     return Model(inputs=input_layer, outputs=x, name="ont_subnet")
 
@@ -175,9 +135,13 @@ def _create_copy_number_subnetwork(
     dim: int,
     norm_layer: layers.Normalization | None = None,
     hidden_dims: t.List[int] | None = None,
+    use_l2: bool = False,
+    use_noise: bool = False,
     use_batch_norm: bool = False,
     use_dropout: bool = False,
+    l2_factor: float = 0.01,
     dropout_rate: float = 0.1,
+    noise_stddev: float = 0.1,
     activation: t.Any = "relu",
 ) -> keras.Model:
     """Creates the mutation subnetwork."""
@@ -195,18 +159,33 @@ def _create_copy_number_subnetwork(
     if hidden_dims is None:
         hidden_dims = [dim // 2, dim // 4, dim // 8]
 
+    if use_noise:
+        x = layers.GaussianNoise(noise_stddev, name="cnv_noise")(x)
+
     n_hidden = len(hidden_dims)
     for i, units in enumerate(hidden_dims, 1):
-        x = MLPBlock(
+        mlp_block = make_mlp_block(
             units,
-            name=f"cnv_mlp_{i}",
             activation=("tanh" if i == n_hidden else activation),
+            # activation=activation,
+            use_l2=use_l2,
             use_batch_norm=use_batch_norm,
             use_dropout=use_dropout,
+            l2_factor=l2_factor,
             dropout_rate=dropout_rate,
-        )(x)
+            name=f"cnv_mlp_{i}",
+        )
+        x = mlp_block(x)
 
     return Model(inputs=input_layer, outputs=x, name="cnv_subnet")
+
+
+def _create_mean_response_subnetwork(dim: int = 1) -> keras.Model:
+    """"""
+    x = input_layer = layers.Input((dim,), name="mr_input")
+    x = layers.Lambda(lambda x: x, name="mr_identity")(x)
+
+    return Model(inputs=input_layer, outputs=x, name="mr_subnet")
 
 
 def _create_cell_subnetwork(
@@ -220,9 +199,13 @@ def _create_cell_subnetwork(
     mut_hidden_dims: t.List[int] | None = None,
     cnv_hidden_dims: t.List[int] | None = None,
     ont_hidden_dims: t.List[int] | None = None,
+    use_l2: bool = False,
+    use_noise: bool = False,
     use_batch_norm: bool = False,
     use_dropout: bool = False,
+    l2_factor: float = 0.01,
     dropout_rate: float = 0.1,
+    noise_stddev: float = 0.1,
     activation: t.Any = "relu",
 ) -> keras.Model:
     """Creates the cell subnetwork.
@@ -252,9 +235,13 @@ def _create_cell_subnetwork(
         exp_dim,
         exp_norm_layer,
         exp_hidden_dims,
+        use_l2=use_l2,
+        use_noise=use_noise,
         use_batch_norm=use_batch_norm,
         use_dropout=use_dropout,
+        l2_factor=l2_factor,
         dropout_rate=dropout_rate,
+        noise_stddev=noise_stddev,
         activation=activation,
     )
     subnet_inputs = [exp_subnet.input]
@@ -264,8 +251,10 @@ def _create_cell_subnetwork(
         mut_subnet = _create_mutation_subnetwork(
             mut_dim,
             mut_hidden_dims,
+            use_l2=use_l2,
             use_batch_norm=use_batch_norm,
             use_dropout=use_dropout,
+            l2_factor=l2_factor,
             dropout_rate=dropout_rate,
             activation=activation,
         )
@@ -277,9 +266,13 @@ def _create_cell_subnetwork(
             cnv_dim,
             cnv_norm_layer,
             cnv_hidden_dims,
+            use_l2=use_l2,
+            use_noise=use_noise,
             use_batch_norm=use_batch_norm,
             use_dropout=use_dropout,
+            l2_factor=l2_factor,
             dropout_rate=dropout_rate,
+            noise_stddev=noise_stddev,
             activation=activation,
         )
         subnet_inputs.append(cnv_subnet.input)
@@ -289,8 +282,10 @@ def _create_cell_subnetwork(
         ont_subnet = _create_ontology_subnetwork(
             ont_dim,
             ont_hidden_dims,
+            use_l2=use_l2,
             use_batch_norm=use_batch_norm,
             use_dropout=use_dropout,
+            l2_factor=l2_factor,
             dropout_rate=dropout_rate,
             activation=activation,
         )
@@ -303,8 +298,10 @@ def _create_cell_subnetwork(
 def _create_drug_subnetwork(
     mol_dim: int,
     mol_hidden_dims: t.List[int] | None = None,
+    use_l2: bool = False,
     use_batch_norm: bool = False,
     use_dropout: bool = False,
+    l2_factor: float = 0.01,
     dropout_rate: float = 0.1,
     activation: t.Any = "relu",
 ) -> keras.Sequential:
@@ -322,21 +319,25 @@ def _create_drug_subnetwork(
     -------
         The drug subnetwork `keras.Model` instance.
     """
-    x = input_layer = layers.Input((mol_dim,), name="fp_input")
+    x = input_layer = layers.Input((mol_dim,), name="mol_input")
 
     if mol_hidden_dims is None:
         mol_hidden_dims = [mol_dim // 2, mol_dim // 4, mol_dim // 8]
 
     n_hidden = len(mol_hidden_dims)
     for i, units in enumerate(mol_hidden_dims, 1):
-        x = MLPBlock(
+        mlp_block = make_mlp_block(
             units,
-            name=f"mol_mlp_{i}",
             activation=("tanh" if i == n_hidden else activation),
+            # activation=activation,
+            use_l2=use_l2,
             use_batch_norm=use_batch_norm,
             use_dropout=use_dropout,
+            l2_factor=l2_factor,
             dropout_rate=dropout_rate,
-        )(x)
+            name=f"mol_mlp_{i}",
+        )
+        x = mlp_block(x)
 
     return Model(inputs=input_layer, outputs=x, name="drug_subnet")
 
@@ -355,9 +356,15 @@ def create_model(
     ont_hidden_dims: t.List[int] | None = None,
     mol_hidden_dims: t.List[int] | None = None,
     shared_hidden_dims: t.List[int] | None = None,
+    use_mr: bool = False,
+    use_l2: bool = False,
+    use_noise: bool = False,
     use_batch_norm: bool = False,
     use_dropout: bool = False,
+    l2_factor: float = 0.01,
+    noise_stddev: float = 0.1,
     dropout_rate: float = 0.1,
+    mr_index: int = -1,
     activation: t.Any = "relu",
 ) -> keras.Model:
     """"""
@@ -372,17 +379,23 @@ def create_model(
         mut_hidden_dims=mut_hidden_dims,
         cnv_hidden_dims=cnv_hidden_dims,
         ont_hidden_dims=ont_hidden_dims,
+        use_l2=use_l2,
+        use_noise=use_noise,
         use_batch_norm=use_batch_norm,
         use_dropout=use_dropout,
+        l2_factor=l2_factor,
         dropout_rate=dropout_rate,
+        noise_stddev=noise_stddev,
         activation=activation,
     )
 
     drug_subnet = _create_drug_subnetwork(
         mol_dim,
         mol_hidden_dims=mol_hidden_dims,
+        use_l2=use_l2,
         use_batch_norm=use_batch_norm,
         use_dropout=use_dropout,
+        l2_factor=l2_factor,
         dropout_rate=dropout_rate,
         activation=activation,
     )
@@ -407,15 +420,27 @@ def create_model(
 
     x = layers.Concatenate(name="concat")(subnet_outputs)
 
+    if mr_index < 0:
+        # convert to real index
+        mr_index += len(shared_hidden_dims)
+
     for i, units in enumerate(shared_hidden_dims, 1):
-        x = MLPBlock(
+        mlp_block = make_mlp_block(
             units,
-            name=f"shared_mlp_{i}",
             activation=activation,
+            use_l2=use_l2,
             use_batch_norm=use_batch_norm,
             use_dropout=use_dropout,
             dropout_rate=dropout_rate,
-        )(x)
+            l2_factor=l2_factor,
+            name=f"shared_mlp_{i}",
+        )
+        x = mlp_block(x)
+
+        if use_mr and i == mr_index + 1:
+            mr_subnet = _create_mean_response_subnetwork(1)
+            subnet_inputs.insert(-1, mr_subnet.input)
+            x = layers.Concatenate(name="mr_concat")([x, mr_subnet.output])
 
     output = layers.Dense(1, "linear", name="final_act")(x)
 

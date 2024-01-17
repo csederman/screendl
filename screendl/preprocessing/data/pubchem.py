@@ -57,17 +57,18 @@ def fetch_pubchem_properties(
 
     n_requests = 0
     for cid in tqdm(pubchem_cids, desc="Fetching PubCHEM properties"):
+        cid = str(cid)
         if cid in cached_props:
             query_props[cid] = cached_props[cid]
             continue
 
         try:
             resp = requests.get(url_fmt.format(cid))
+            resp.raise_for_status()
             query_props[cid] = resp.json()["PropertyTable"]["Properties"][0]
 
         except Exception as e:
-            # FIXME: add pass after fail
-            raise e
+            pass
 
         n_requests += 1
         if n_requests % 5 == 0:

@@ -63,6 +63,8 @@ def clean_hci_data(
     data: HCIData,
     model_types: t.List[str] | None = None,
     min_samples_per_drug: int | None = None,
+    gr_metric: str = "IC50",
+    log_transform: bool = True,
 ) -> HCIData:
     """Cleans and harmonizes the raw HCI data."""
     resp = data.resp
@@ -76,14 +78,27 @@ def clean_hci_data(
 
     # only include drugs with PubCHEM ids
     drug_meta = drug_meta.dropna(subset="pubchem_id").drop_duplicates()
-    resp["ln_ic50"] = np.log(resp["IC50"])
-    resp = resp[resp["drug_name"].isin(drug_meta["drug_name"])]
 
-    # only consider specified model types (e.g. PDX vs PDO)
-    cell_meta = cell_meta[cell_meta["model_type"].isin(model_types)]
+    resp_labels = resp[gr_metric]
+    if log_transform:
+        resp_labels = np.log(resp_labels)
+    resp["label"] = resp_labels
+
+    resp = resp[resp["drug_name"].isin(drug_meta["drug_name"])]
 
     if mut is not None:
         cell_meta = cell_meta[cell_meta["has_matching_wes"] == True]
+
+    # only consider specified model types (e.g. PDX vs PDO)
+    cell_meta = cell_meta[cell_meta["model_type"].isin(model_types)].copy()
+
+    # remove duplicates, choosing the prefered model type
+    if len(model_types) > 1:
+        cell_meta["model_type"] = pd.Categorical(
+            cell_meta["model_type"], model_types, ordered=True
+        )
+        cell_meta = cell_meta.sort_values(["model_id", "model_type"])
+        cell_meta = cell_meta.drop_duplicates("model_id")
 
     common_samples = intersect_columns(resp, cell_meta, "model_id")
     common_samples = sorted(list(common_samples))
@@ -119,10 +134,18 @@ def load_and_clean_hci_data(
     mut_path: FilePathOrBuff | None = None,
     model_types: t.List[str] | None = None,
     min_samples_per_drug: int | None = None,
+    gr_metric: str = "IC50",
+    log_transform: bool = True,
 ) -> HCIData:
     """Loads and cleans the raw HCI data."""
     hci_data = load_hci_data(
         exp_path, resp_path, pdmc_meta_path, drug_meta_path, mut_path
     )
-    hci_data = clean_hci_data(hci_data, model_types, min_samples_per_drug)
+    hci_data = clean_hci_data(
+        hci_data,
+        model_types,
+        min_samples_per_drug,
+        gr_metric=gr_metric,
+        log_transform=log_transform,
+    )
     return hci_data
