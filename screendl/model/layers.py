@@ -68,6 +68,15 @@ class MLPBlock(keras.layers.Layer):
         return cls(dense_layer, act_layer, dropout_layer, batch_norm_layer, **config)
 
 
+def get_keras_activation(
+    identifier: t.Any,
+) -> keras.layers.Activation | keras.layers.PReLU:
+    if identifier == "prelu":
+        return keras.layers.PReLU()
+    else:
+        return keras.layers.Activation(identifier)
+
+
 def make_mlp_block(
     units: int,
     activation: t.Any = "relu",
@@ -100,7 +109,8 @@ def make_mlp_block(
     """
     kernel_regularizer = None if not use_l2 else keras.regularizers.L2(l2_factor)
 
-    act_layer = keras.layers.Activation(keras.activations.get(activation))
+    act_layer = get_keras_activation(activation)
+    # act_layer = keras.layers.Activation(keras.activations.get(activation))
     dense_layer = keras.layers.Dense(units, kernel_regularizer=kernel_regularizer)
     dropout_layer = keras.layers.Dropout(dropout_rate) if use_dropout else None
     batch_norm_layer = keras.layers.BatchNormalization() if use_batch_norm else None
