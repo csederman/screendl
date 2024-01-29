@@ -19,7 +19,7 @@ from pathlib import Path
 from sklearn.preprocessing import StandardScaler
 from tensorflow import keras
 
-from cdrpy.data import Dataset
+from cdrpy.datasets import Dataset
 from cdrpy.feat.encoders import PandasEncoder
 from cdrpy.feat.transformers import GroupStandardScaler
 from cdrpy.mapper import BatchedResponseGenerator
@@ -115,8 +115,12 @@ def train(g_params: GParams) -> t.Dict[str, float]:
         shared_hidden_dims=g_params["shared_hidden_dims"],
         use_batch_norm=g_params["use_batch_norm"],
         use_dropout=g_params["use_dropout"],
+        use_noise=g_params["use_noise"],
+        use_l2=g_params["use_l2"],
         dropout_rate=g_params["dropout_rate"],
         activation=g_params["activation"],
+        l2_factor=g_params["l2_factor"],
+        noise_stddev=g_params["noise_stddev"],
     )
 
     model.compile(

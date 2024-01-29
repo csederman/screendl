@@ -26,6 +26,26 @@ IMPROVE_ADDITIONAL_DEFINITIONS = [
         "type": bool,
         "default": False,
     },
+    {
+        "name": "use_noise",
+        "type": bool,
+        "default": False,
+    },
+    {
+        "name": "noise_stddev",
+        "type": float,
+        "default": 0.0,
+    },
+    {
+        "name": "use_l2",
+        "type": bool,
+        "default": False,
+    },
+    {
+        "name": "l2_factor",
+        "type": float,
+        "default": 0.0,
+    },
     # architecture
     {
         "name": "shared_hidden_dims",
