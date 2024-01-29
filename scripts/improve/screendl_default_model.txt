@@ -11,10 +11,19 @@ batch_size = 512
 learning_rate = 0.0001
 activation = "leaky_relu"
 
+use_dropout = false
+use_batch_norm = false
+use_l2 = false
+use_noise = false
+
+dropout_rate = 0.0
+l2_factor = 0.0
+noise_stddev = 0.2
+
 # architecture
-shared_hidden_dims = [64, 32, 16, 8]
 exp_hidden_dims = [512, 256, 128, 64]
 mol_hidden_dims = [256, 128, 64]
+shared_hidden_dims = [64, 32, 16]
 
 # preprocessing
 label_norm_method = "grouped"
