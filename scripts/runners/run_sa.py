@@ -25,7 +25,7 @@ tf.random.set_seed(1771)
 
 from omegaconf import DictConfig
 from cdrpy.mapper import BatchedResponseGenerator
-from cdrpy.data.datasets import Dataset
+from cdrpy.datasets import Dataset
 
 from screendl.utils import model_utils
 from screendl.utils import evaluation as eval_utils

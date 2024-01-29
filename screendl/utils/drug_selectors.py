@@ -14,7 +14,7 @@ import typing as t
 from abc import ABC, abstractmethod
 from collections import defaultdict
 
-from cdrpy.data.datasets import Dataset
+from cdrpy.datasets import Dataset
 from cdrpy.core.random import _seeded_state
 
 from scipy import stats

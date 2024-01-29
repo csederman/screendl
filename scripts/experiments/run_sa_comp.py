@@ -21,7 +21,7 @@ from tensorflow import keras
 from tqdm import tqdm
 
 from cdrpy.mapper import BatchedResponseGenerator
-from cdrpy.data import Dataset
+from cdrpy.datasets import Dataset
 
 from screendl.pipelines.basic.screendl import run_pipeline
 from screendl.utils import evaluation as eval_utils

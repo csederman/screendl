@@ -13,7 +13,7 @@ from cdrpy.feat.encoders import PandasEncoder
 
 
 if t.TYPE_CHECKING:
-    from cdrpy.data.datasets import EncoderDict
+    from cdrpy.datasets import EncoderDict
 
 
 def load_cell_features(

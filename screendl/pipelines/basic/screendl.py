@@ -18,7 +18,7 @@ from pathlib import Path
 from sklearn.preprocessing import StandardScaler
 from tensorflow import keras
 
-from cdrpy.data.datasets import Dataset
+from cdrpy.datasets import Dataset
 from cdrpy.data.preprocess import normalize_responses
 from cdrpy.feat.encoders import PandasEncoder
 from cdrpy.mapper import BatchedResponseGenerator
