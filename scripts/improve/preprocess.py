@@ -18,7 +18,7 @@ import zipfile
 import pandas as pd
 import typing as t
 
-from cdrpy.data import Dataset
+from cdrpy.datasets import Dataset
 from cdrpy.feat.encoders import PandasEncoder
 from cdrpy.util import io as io_utils
 
