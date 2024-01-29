@@ -11,10 +11,10 @@ batch_size = 512
 learning_rate = 0.0001
 activation = "leaky_relu"
 
-use_dropout = "false"
-use_batch_norm = "false"
-use_l2 = "false"
-use_noise = "false"
+use_dropout = 0
+use_batch_norm = 0
+use_l2 = 0
+use_noise = 0
 
 dropout_rate = 0.0
 l2_factor = 0.0
