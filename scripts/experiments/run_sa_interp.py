@@ -22,7 +22,7 @@ from pathlib import Path
 from tensorflow import keras
 from tqdm import tqdm
 
-from cdrpy.data import Dataset
+from cdrpy.datasets import Dataset
 from cdrpy.mapper import BatchedResponseGenerator
 
 from screendl.utils import model_utils

@@ -17,7 +17,7 @@ from cdrpy.mapper import BatchedResponseGenerator
 
 if t.TYPE_CHECKING:
     from cdrpy.types import PathLike
-    from cdrpy.data.datasets import Dataset
+    from cdrpy.datasets import Dataset
 
 
 def train_model(

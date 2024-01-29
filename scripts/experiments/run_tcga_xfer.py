@@ -22,7 +22,7 @@ from sklearn.preprocessing import StandardScaler
 from tensorflow import keras
 from tqdm import tqdm
 
-from cdrpy.data.datasets import Dataset
+from cdrpy.datasets import Dataset
 from cdrpy.data.preprocess import normalize_responses
 from cdrpy.mapper import BatchedResponseGenerator
 from cdrpy.metrics import tf_metrics

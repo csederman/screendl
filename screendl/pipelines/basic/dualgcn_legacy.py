@@ -24,7 +24,7 @@ from pathlib import Path
 from tensorflow import keras
 from types import SimpleNamespace
 
-from cdrpy.data.datasets import Dataset
+from cdrpy.datasets import Dataset
 from cdrpy.data.preprocess import normalize_responses
 from cdrpy.feat.encoders import DictEncoder, RepeatEncoder
 from cdrpy.metrics import tf_metrics

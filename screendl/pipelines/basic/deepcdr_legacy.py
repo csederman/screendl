@@ -24,7 +24,7 @@ from tensorflow import keras
 from types import SimpleNamespace
 
 from cdrpy.feat.encoders import PandasEncoder, DictEncoder
-from cdrpy.data.datasets import Dataset
+from cdrpy.datasets import Dataset
 from cdrpy.data.preprocess import normalize_responses
 from cdrpy.metrics import tf_metrics
 from cdrpy.util.io import read_pickled_dict
