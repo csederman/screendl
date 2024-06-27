@@ -1,5 +1,5 @@
 defaults:
-  - dataset: CellModelPassportsGDSCv2
+  - dataset: CellModelPassportsGDSCv1v2Hallmark
   - model: ScreenDL
   - _self_
 

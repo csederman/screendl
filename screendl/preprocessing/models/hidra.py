@@ -287,7 +287,8 @@ def generate_hidra_inputs(
     common_genes = sorted(list(gene_list.intersection(exp_df.columns)))
 
     # log transform TPM values
-    exp_feat: pd.DataFrame = np.log2(exp_df[common_genes] + 1)
+    # exp_feat: pd.DataFrame = np.log2(exp_df[common_genes] + 1)
+    exp_feat = exp_df[common_genes]
 
     num_missing_exp = len(set(gene_list).difference(common_genes))
     if num_missing_exp > 0:

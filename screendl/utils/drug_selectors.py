@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import itertools
 import random
+import warnings
 
 import numpy as np
 import numpy.typing as npt
@@ -18,6 +19,9 @@ from cdrpy.datasets import Dataset
 from cdrpy.core.random import _seeded_state
 
 from scipy import stats
+from scipy.optimize import linprog
+from scipy.linalg import det
+
 from sklearn.cluster import KMeans, AgglomerativeClustering
 from sklearn.decomposition import PCA
 from sklearn.impute import KNNImputer
@@ -33,6 +37,7 @@ __all__ = [
     "PrincipalDrugSelector",
     "MeanResponseSelector",
     "UniformDrugSelector",
+    "DOptimalDrugSelector",
     "DrugSelectorType",
 ]
 
@@ -40,12 +45,15 @@ __all__ = [
 Seed = t.Union[int, float, None]
 
 
-def get_response_matrix(D: Dataset, impute: bool = True) -> pd.DataFrame:
+def get_response_matrix(
+    D: Dataset, impute: bool = True, na_threshold: float = 0.0, n_neighbors: int = 3
+) -> pd.DataFrame:
     """Converts dataset observations into a drug response matrix."""
-    M = D.obs.pivot_table(index="drug_id", columns="cell_id", values="label")
+    M = D.obs.pivot_table(index="cell_id", columns="drug_id", values="label")
+    M = M.dropna(thresh=np.floor(na_threshold * M.shape[0]), axis=1)
     if impute:
-        M[:] = KNNImputer(n_neighbors=3).fit_transform(M)
-    return M
+        M[:] = KNNImputer(n_neighbors=n_neighbors).fit_transform(M)
+    return M.T
 
 
 class DrugSelectorBase(ABC):
@@ -70,10 +78,19 @@ class RandomDrugSelector(DrugSelectorBase):
         seed: Optional seed for random number generation.
     """
 
-    def __init__(self, D: Dataset, seed: Seed = None, name: str | None = None) -> None:
+    def __init__(
+        self,
+        D: Dataset,
+        na_threshold: float = 0.9,
+        seed: Seed = None,
+        name: str | None = None,
+    ) -> None:
         self.dataset = D
+        self.na_threshold = na_threshold
         self.name = name
-        self.response_mat = get_response_matrix(self.dataset)
+        self.response_mat = get_response_matrix(
+            self.dataset, impute=True, na_threshold=self.na_threshold
+        )
         self._rs, _ = _seeded_state(seed)
 
     def select(
@@ -96,18 +113,32 @@ class RandomDrugSelector(DrugSelectorBase):
         if choices is not None:
             M = M[M.index.isin(choices)]
 
+        # return all drugs if fewer than choices
+        if M.shape[0] <= n:
+            warnings.warn(f"Fewer than {n} drugs available for sample.")
+            return list(M.index)
+
         return self._rs.sample(list(M.index), n)
 
 
 class UniformDrugSelector(DrugSelectorBase):
     """Uniform drug selection along metadata fields."""
 
-    def __init__(self, D: Dataset, seed: Seed = None, name: str | None = None) -> None:
+    def __init__(
+        self,
+        D: Dataset,
+        na_threshold: float = 0.9,
+        seed: Seed = None,
+        name: str | None = None,
+    ) -> None:
         if D.drug_meta is None:
             raise ValueError("drug selector requires drug metadata")
         self.dataset = D
+        self.na_threshold = na_threshold
         self.name = name
-        self.response_mat = get_response_matrix(self.dataset)
+        self.response_mat = get_response_matrix(
+            self.dataset, impute=True, na_threshold=self.na_threshold
+        )
         self._rs, _ = _seeded_state(seed)
 
     def select(
@@ -123,6 +154,11 @@ class UniformDrugSelector(DrugSelectorBase):
         drug_meta = self.dataset.drug_meta.copy()
         if choices is not None:
             drug_meta = drug_meta[drug_meta.index.isin(choices)]
+
+        # return all drugs if fewer than choices
+        if drug_meta.shape[0] <= n:
+            warnings.warn(f"Fewer than {n} drugs available for sample.")
+            return list(drug_meta.index)
 
         drug_groups = (
             drug_meta.rename_axis(index="drug_id")
@@ -160,10 +196,19 @@ class MeanResponseSelector(DrugSelectorBase):
         seed: Ignored, exists for compatability.
     """
 
-    def __init__(self, D: Dataset, seed: Seed = None, name: str | None = None) -> None:
+    def __init__(
+        self,
+        D: Dataset,
+        na_threshold: float = 0.9,
+        seed: Seed = None,
+        name: str | None = None,
+    ) -> None:
         self.dataset = D
+        self.na_threshold = na_threshold
         self.name = name
-        self.response_mat = get_response_matrix(self.dataset)
+        self.response_mat = get_response_matrix(
+            self.dataset, impute=True, na_threshold=self.na_threshold
+        )
 
     def select(
         self,
@@ -185,6 +230,11 @@ class MeanResponseSelector(DrugSelectorBase):
         if choices is not None:
             M = M[M.index.isin(choices)]
 
+        # return all drugs if fewer than choices
+        if M.shape[0] <= n:
+            warnings.warn(f"Fewer than {n} drugs available for sample.")
+            return list(M.index)
+
         X = M.transform(stats.zscore, axis=1).T
         y = X.mean(axis=1)
 
@@ -202,10 +252,19 @@ class KMeansDrugSelector(DrugSelectorBase):
         seed: Optional seed for random number generation.
     """
 
-    def __init__(self, D: Dataset, seed: Seed = None, name: str | None = None) -> None:
+    def __init__(
+        self,
+        D: Dataset,
+        na_threshold: float = 0.9,
+        seed: Seed = None,
+        name: str | None = None,
+    ) -> None:
         self.dataset = D
+        self.na_threshold = na_threshold
         self.name = name
-        self.response_mat = get_response_matrix(self.dataset)
+        self.response_mat = get_response_matrix(
+            self.dataset, impute=True, na_threshold=self.na_threshold
+        )
         self._rs, self._np_rs = _seeded_state(seed)
 
     def select(
@@ -227,6 +286,11 @@ class KMeansDrugSelector(DrugSelectorBase):
         M = self.response_mat
         if choices is not None:
             M = M[M.index.isin(choices)]
+
+        # return all drugs if fewer than choices
+        if M.shape[0] <= n:
+            warnings.warn(f"Fewer than {n} drugs available for sample.")
+            return list(M.index)
 
         km = KMeans(n, n_init="auto", random_state=self._np_rs).fit(M)
 
@@ -250,10 +314,19 @@ class AgglomerativeDrugSelector(DrugSelectorBase):
         seed: Optional seed for random number generation.
     """
 
-    def __init__(self, D: Dataset, seed: Seed = None, name: str | None = None) -> None:
+    def __init__(
+        self,
+        D: Dataset,
+        na_threshold: float = 0.9,
+        seed: Seed = None,
+        name: str | None = None,
+    ) -> None:
         self.dataset = D
+        self.na_threshold = na_threshold
         self.name = name
-        self.response_mat = get_response_matrix(self.dataset)
+        self.response_mat = get_response_matrix(
+            self.dataset, impute=True, na_threshold=self.na_threshold
+        )
         self._rs, self._np_rs = _seeded_state(seed)
 
     def select(
@@ -275,6 +348,11 @@ class AgglomerativeDrugSelector(DrugSelectorBase):
         M = self.response_mat
         if choices is not None:
             M = M[M.index.isin(choices)]
+
+        # return all drugs if fewer than choices
+        if M.shape[0] <= n:
+            warnings.warn(f"Fewer than {n} drugs available for sample.")
+            return list(M.index)
 
         agg = AgglomerativeClustering(n).fit(M)
 
@@ -305,10 +383,19 @@ class PrincipalDrugSelector(DrugSelectorBase):
                15th ACM International Conference on Multimedia, 301-304, 2007.
     """
 
-    def __init__(self, D: Dataset, seed: Seed = None, name: str | None = None) -> None:
+    def __init__(
+        self,
+        D: Dataset,
+        na_threshold: float = 0.9,
+        seed: Seed = None,
+        name: str | None = None,
+    ) -> None:
         self.dataset = D
+        self.na_threshold = na_threshold
         self.name = name
-        self.response_mat = get_response_matrix(self.dataset)
+        self.response_mat = get_response_matrix(
+            self.dataset, impute=True, na_threshold=self.na_threshold
+        )
         self._rs, self._np_rs = _seeded_state(seed)
 
     def select(
@@ -333,6 +420,11 @@ class PrincipalDrugSelector(DrugSelectorBase):
         M = self.response_mat
         if choices is not None:
             M = M[M.index.isin(choices)]
+
+        # return all drugs if fewer than choices
+        if M.shape[0] <= n:
+            warnings.warn(f"Fewer than {n} drugs available for sample.")
+            return list(M.index)
 
         X = M.T
         X_std = StandardScaler().fit_transform(X)
@@ -401,6 +493,73 @@ class PrincipalDrugSelector(DrugSelectorBase):
     #     return list(M.index[inds])
 
 
+class DOptimalDrugSelector(DrugSelectorBase):
+
+    def __init__(
+        self,
+        D: Dataset,
+        na_threshold: float = 0.9,
+        lambda_reg: float = 0.01,
+        seed: Seed = None,
+        name: str | None = None,
+    ) -> None:
+        self.dataset = D
+        self.na_threshold = na_threshold
+        self.lambda_reg = lambda_reg
+        self.name = name
+        self.response_mat = get_response_matrix(
+            self.dataset, impute=True, na_threshold=self.na_threshold
+        )
+        self._rs, _ = _seeded_state(seed)
+
+    def select(self, n: int, choices: t.Iterable[str] | None = None) -> t.List[str]:
+        """Selects the specified number of drugs from the response matrix.
+
+        Parameters
+        ----------
+            n: The number of drugs to select.
+            choices: The drugs to choose from.
+
+        Returns
+        -------
+            A list of selected drugs.
+        """
+        M = self.response_mat
+        if choices is not None:
+            M = M[M.index.isin(choices)]
+
+        X = M.T
+        X_std = StandardScaler().fit_transform(X)
+
+        selected_indices = []
+        remaining_indices = list(range(X.shape[1]))
+
+        for _ in range(n):
+            best_det = -np.inf
+            best_index = None
+
+            for idx in remaining_indices:
+                test_indices = selected_indices + [idx]
+                X_sub = X_std[:, test_indices]
+                info_matrix = np.dot(X_sub.T, X_sub) + self.lambda_reg * np.eye(
+                    len(test_indices)
+                )
+
+                try:
+                    current_det = det(info_matrix)
+                except np.linalg.LinAlgError:
+                    current_det = 0  # in case the matrix is singular
+
+                if current_det > best_det:
+                    best_det = current_det
+                    best_index = idx
+
+            selected_indices.append(best_index)
+            remaining_indices.remove(best_index)
+
+        return X.columns[selected_indices].to_list()
+
+
 DrugSelectorType = t.Union[
     t.Type[RandomDrugSelector],
     t.Type[KMeansDrugSelector],
@@ -408,6 +567,7 @@ DrugSelectorType = t.Union[
     t.Type[PrincipalDrugSelector],
     t.Type[MeanResponseSelector],
     t.Type[UniformDrugSelector],
+    t.Type[DOptimalDrugSelector],
 ]
 
 
@@ -417,4 +577,5 @@ SELECTORS: t.Dict[str, DrugSelectorType] = {
     "principal": PrincipalDrugSelector,
     "random": RandomDrugSelector,
     "uniform": UniformDrugSelector,
+    "doptimal": DOptimalDrugSelector,
 }

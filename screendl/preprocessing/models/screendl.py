@@ -50,8 +50,8 @@ def _generate_exp_features(
         msg = "Found {} missing exp genes in the specified gene list."
         log.warning(msg.format(num_missing))
 
-    if log_transform:
-        exp_feat: pd.DataFrame = np.log2(exp_feat + 1)
+    # if log_transform:
+    #     exp_feat: pd.DataFrame = np.log2(exp_feat + 1)
 
     if min_var_threshold is not None:
         gene_vars = exp_feat.var()

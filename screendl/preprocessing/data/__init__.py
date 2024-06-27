@@ -94,7 +94,7 @@ def harmonize_cmp_gdsc_hci_data(
 
     cols = ["model_id", "cancer_type", "model_type", "domain"]
     cmp_data.meta = cmp_data.meta[cols]
-    hci_data.cell_meta = hci_data.cell_meta[cols]
+    hci_data.cell_meta = hci_data.cell_meta[cols + ["sample_id_rna", "sample_id_wes"]]
 
     cmp_exp_genes = cmp_data.exp.columns
     hci_exp_genes = hci_data.exp.columns

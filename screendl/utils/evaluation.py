@@ -8,9 +8,11 @@ import tensorflow as tf
 import typing as t
 
 from scipy import stats
+from sklearn.preprocessing import StandardScaler
 from tensorflow import keras
 
 from cdrpy.mapper import BatchedResponseGenerator
+from cdrpy.data.preprocess import GroupStandardScaler
 
 if t.TYPE_CHECKING:
     from cdrpy.data import Dataset
@@ -86,24 +88,75 @@ def get_eval_metrics(pred_df: pd.DataFrame, key: ScoreKey = "loss") -> ScoreDict
     return {"key": key, "value": metrics[key], **metrics}
 
 
+# def get_preds_vs_background(
+#     M: keras.Model,
+#     target_ds: Dataset,
+#     background_ds: Dataset,
+#     batch_size: int = 256,
+#     grouped: bool = True,
+#     **kwargs,
+# ) -> pd.DataFrame:
+#     """Computes z-score predictions against a background distribution."""
+#     t_gen = BatchedResponseGenerator(target_ds, batch_size)
+#     t_preds = M.predict(t_gen.flow_from_dataset(target_ds), verbose=0)
+#     t_pred_df = make_pred_df(target_ds, t_preds, **dict(kwargs, _bg=False))
+
+#     b_gen = BatchedResponseGenerator(background_ds, batch_size)
+#     b_preds = M.predict(b_gen.flow_from_dataset(background_ds), verbose=0)
+#     b_pred_df = make_pred_df(background_ds, b_preds, **dict(kwargs, _bg=True))
+
+#     pred_df = pd.concat([t_pred_df, b_pred_df])
+
+#     if grouped:
+#         pred_df["y_pred"] = pred_df.groupby("drug_id")["y_pred"].transform(stats.zscore)
+#     else:
+#         pred_df["y_pred"] = stats.zscore(pred_df["y_pred"])
+
+#     pred_df = pred_df[pred_df["_bg"] == False].drop(columns="_bg")
+
+#     return pred_df
+
+
 def get_preds_vs_background(
     M: keras.Model,
-    target_ds: Dataset,
-    background_ds: Dataset,
+    D_target: Dataset,
+    D_background: Dataset,
     batch_size: int = 256,
+    grouped: bool = True,
+    return_all: bool = False,
     **kwargs,
 ) -> pd.DataFrame:
     """Computes z-score predictions against a background distribution."""
-    t_gen = BatchedResponseGenerator(target_ds, batch_size)
-    t_preds = M.predict(t_gen.flow_from_dataset(target_ds), verbose=0)
-    t_pred_df = make_pred_df(target_ds, t_preds, **dict(kwargs, _bg=False))
+    tgt_gen = BatchedResponseGenerator(D_target, batch_size)
+    tgt_seq = tgt_gen.flow_from_dataset(D_target)
+    tgt_preds = M.predict(tgt_seq, verbose=0)
+    tgt_preds = make_pred_df(D_target, tgt_preds, **kwargs)
 
-    b_gen = BatchedResponseGenerator(background_ds, batch_size)
-    b_preds = M.predict(b_gen.flow_from_dataset(background_ds), verbose=0)
-    b_pred_df = make_pred_df(background_ds, b_preds, **dict(kwargs, _bg=True))
+    bg_gen = BatchedResponseGenerator(D_background, batch_size)
+    bg_seq = bg_gen.flow_from_dataset(D_background)
+    bg_preds = M.predict(bg_seq, verbose=0)
+    bg_preds = make_pred_df(D_background, bg_preds, **kwargs)
 
-    pred_df = pd.concat([t_pred_df, b_pred_df])
-    pred_df["y_pred"] = pred_df.groupby("drug_id")["y_pred"].transform(stats.zscore)
-    pred_df = pred_df[pred_df["_bg"] == False].drop(columns="_bg")
+    if grouped:
+        scaler = GroupStandardScaler().fit(
+            bg_preds[["y_pred"]], groups=bg_preds["drug_id"]
+        )
+        tgt_preds["y_pred"] = scaler.transform(
+            tgt_preds[["y_pred"]], groups=tgt_preds["drug_id"]
+        )
+        if return_all:
+            bg_preds["y_pred"] = scaler.transform(
+                bg_preds[["y_pred"]], groups=bg_preds["drug_id"]
+            )
+    else:
+        scaler = StandardScaler().fit(bg_preds[["y_pred"]])
+        tgt_preds["y_pred"] = scaler.transform(tgt_preds[["y_pred"]])
+        if return_all:
+            bg_preds["y_pred"] = scaler.transform(bg_preds[["y_pred"]])
 
-    return pred_df
+    if return_all:
+        bg_preds = bg_preds.assign(partition="background")
+        tgt_preds = tgt_preds.assign(partition="target")
+        return pd.concat([tgt_preds, bg_preds]).reset_index(drop=True)
+
+    return tgt_preds

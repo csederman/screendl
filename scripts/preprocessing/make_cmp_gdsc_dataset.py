@@ -11,6 +11,7 @@ import sys
 import click
 import logging
 
+import numpy as np
 import pandas as pd
 import typing as t
 
@@ -52,6 +53,9 @@ def make_dataset(cfg: DictConfig) -> t.Tuple[cmp.CMPData, gdsc.GDSCData]:
 
     log.info("Harmonizing GDSC and Cell Model Passports...")
     cmp_data, gdsc_data = harmonize_cmp_gdsc_data(cmp_data, gdsc_data)
+
+    # log transform the TPM values
+    cmp_data.exp: pd.DataFrame = np.log2(cmp_data.exp + 1)
 
     # query PubCHEM annotations
     pchem_ids = list(gdsc_data.meta["pubchem_id"])

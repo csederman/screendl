@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - dataset: CellModelPassportsGDSCv2AUC
+  - dataset: CellModelPassportsGDSCv1v2Hallmark
   - model: ScreenDL
   - override hydra/sweeper: optuna
 

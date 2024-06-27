@@ -36,8 +36,8 @@ def generate_deepcdr_inputs(
     exp_common_genes = exp_df.columns.intersection(gene_list)
 
     # log transform raw TPM values
-    exp_feat: pd.DataFrame = np.log2(exp_df[exp_common_genes] + 1)
-    exp_feat = exp_feat.sort_index()
+    # exp_feat: pd.DataFrame = np.log2(exp_df[exp_common_genes] + 1)
+    exp_feat = exp_df[exp_common_genes].sort_index()
 
     num_missing_exp = len(set(gene_list).difference(exp_common_genes))
     if num_missing_exp > 0:
