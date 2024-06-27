@@ -109,10 +109,13 @@ def run_experiment(cfg: DictConfig) -> None:
                 if cell_ds.n_drugs < n_drugs + 5:
                     continue
 
-                result = run_single_sample(cfg, model, cell_ds, selector, n_drugs)
-                result.to_csv(
-                    out_file, index=False, mode="a", header=(not out_file.exists())
-                )
+                try:
+                    result = run_single_sample(cfg, model, cell_ds, selector, n_drugs)
+                    result.to_csv(
+                        out_file, index=False, mode="a", header=(not out_file.exists())
+                    )
+                except Exception as e:
+                    print(e)
 
                 model.set_weights(base_weights)
 

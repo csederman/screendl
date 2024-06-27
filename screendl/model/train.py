@@ -59,7 +59,7 @@ def train_model(
         # FIXME: do we want to restore best weights?
         callbacks.append(
             keras.callbacks.EarlyStopping(
-                "val_mse",
+                "val_loss",
                 patience=10,
                 restore_best_weights=True,
                 start_from_epoch=3,

@@ -8,7 +8,11 @@ split:
   id: 1
 
 sources:
+
   labels: "${dataset.dir}/LabelsLogIC50.csv"
+  cell_meta: "${dataset.dir}/MetaCellAnnotations.csv"
+  drug_meta: "${dataset.dir}/MetaDrugAnnotations.csv"
+
 
   dualgcn:
     exp: "${dataset.dir}/DualGCN/FeatureGeneExpression.csv"

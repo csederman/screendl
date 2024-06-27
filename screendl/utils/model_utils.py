@@ -80,11 +80,11 @@ def configure_transfer_model(
 
     base_model.trainable = True
 
-    inputs = base_model.inputs
-    output = base_model(inputs, training=training)
-    model = keras.Model(inputs, output, name=base_model.name)
+    # inputs = base_model.inputs
+    # output = base_model(inputs, training=training)
+    # model = keras.Model(inputs, output, name=base_model.name)
 
-    model = freeze_layers(model, frozen_layer_names, frozen_layer_prefixes)
+    model = freeze_layers(base_model, frozen_layer_names, frozen_layer_prefixes)
     model.compile(optim, loss)
 
     return model

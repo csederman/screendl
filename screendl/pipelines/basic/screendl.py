@@ -209,7 +209,9 @@ def model_builder(cfg: DictConfig, train_dataset: Dataset) -> keras.Model:
         use_noise=params.hyper.use_noise,
         use_batch_norm=params.hyper.use_batch_norm,
         use_dropout=params.hyper.use_dropout,
+        use_l2=params.hyper.use_l2,
         noise_stddev=params.hyper.noise_stddev,
+        l2_factor=params.hyper.l2_factor,
         dropout_rate=params.hyper.dropout_rate,
         activation=params.hyper.activation,
     )

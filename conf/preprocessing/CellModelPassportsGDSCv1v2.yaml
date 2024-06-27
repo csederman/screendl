@@ -2,7 +2,7 @@ _root_: "/scratch/ucgd/lustre-work/marth/u0871891/datastore"
 
 dataset:
   dir: "${_root_}/datasets/${dataset.name}"
-  name: CellModelPassportsGDSCv1v2Hallmark
+  name: CellModelPassportsGDSCv1v2HallmarkAUC
   save: True
 
   paths:
@@ -26,7 +26,7 @@ dataset:
       cancer_type_blacklist: null
       min_cells_per_cancer_type: 20
     gdsc:
-      gr_metric: "ln_ic50"
+      gr_metric: "auc"
       log_transform: false
 
 splits:

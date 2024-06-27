@@ -101,7 +101,6 @@ def run_sa(cfg: DictConfig) -> float:
     # NOTE: some drug selection algorithms require un-normalized responses
     train_cell_ids = set(ds_dict["train"].cell_ids)
     selection_ds = ds_dict["full"].select_cells(train_cell_ids)
-    selector = SELECTORS[opts.selector](selection_ds, seed=opts.seed)
 
     test_ds: Dataset = ds_dict["test"]
     test_gen = BatchedResponseGenerator(test_ds, 256)
@@ -121,17 +120,23 @@ def run_sa(cfg: DictConfig) -> float:
             )
             continue
 
-        screen_drugs = selector.select(opts.n_drugs, choices=choices)
-        screen_ds = cell_ds.select_drugs(screen_drugs)
+        try:
+            # try the selection with default na_threshold
+            selector = SELECTORS[opts.selector](selection_ds, seed=opts.seed)
+            screen_drugs = selector.select(opts.n_drugs, choices=choices)
+            screen_ds = cell_ds.select_drugs(screen_drugs)
+
+        except Exception as e:
+            print(e)
+
+            selector = SELECTORS[opts.selector](
+                selection_ds, seed=opts.seed, na_threshold=0.0
+            )
+            screen_drugs = selector.select(opts.n_drugs, choices=choices)
+            screen_ds = cell_ds.select_drugs(screen_drugs)
 
         holdout_ds = cell_ds.select_drugs(choices.difference(screen_drugs))
         holdout_seq = test_gen.flow_from_dataset(holdout_ds)
-
-        if "mr" in screen_ds.cell_encoders:
-            # update the mean response encoder with the estimate from screening
-            mr_prime = screen_ds.cell_encoders["mr"].encode(cell_id)[0]
-            mr_est = screen_ds.obs["label"].mean()
-            screen_ds.cell_encoders["mr"].data.loc[cell_id, "value"] = mr_est
 
         sa_model = model_utils.fit_screenahead_model(
             base_model,
@@ -155,9 +160,6 @@ def run_sa(cfg: DictConfig) -> float:
                 norm_method=cfg.dataset.preprocess.norm,
             )
         )
-
-        if "mr" in screen_ds.cell_encoders:
-            screen_ds.cell_encoders["mr"].data.loc[cell_id, "value"] = mr_prime
 
         # restore the weights before each iteration
         base_model.set_weights(base_weights)

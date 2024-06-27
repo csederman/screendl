@@ -1,5 +1,5 @@
 defaults:
-  - dataset: CellModelPassportsGDSCv2HCIExpressionOnly
+  - dataset: CellModelPassportsGDSCv1v2HCIv9AllDrugsHallmarkCombat
   - model: ScreenDL
   - _self_
 
@@ -17,16 +17,18 @@ hydra:
 
 xfer:
   hyper:
-    epochs: 10
+    epochs: 30
     batch_size: 256
     learning_rate: 1e-4
-    weight_decay: null
+    weight_decay: 1e-2
 
 screenahead:
   opt:
     seed: 1771
-    n_drugs: 10
+    n_drugs: 12
     selector: principal
+    exclude_drugs: null
+    screen_all: false
   hyper:
     learning_rate: 1e-4
     batch_size: null
@@ -35,6 +37,14 @@ screenahead:
 experiment:
   run_xfer: true
   run_no_xfer_screenahead: false
+  keep_pdmc_only_drugs:
+    - Birinapant
+    # - Enzalutamide
+    - Eribulin
+    - Everolimus
+    - RO4929097
+    - Tolinapant
+    - Carboplatin
 
 output:
   log: logs

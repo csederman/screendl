@@ -76,7 +76,8 @@ def generate_dualgcn_inputs(
         log.warning(f"Found {num_missing_ppi_genes} missing PPI genes.")
 
     # 2. extract gene expression features
-    exp_feat: pd.DataFrame = np.log2(exp_df[common_genes] + 1)
+    # exp_feat: pd.DataFrame = np.log2(exp_df[common_genes] + 1)
+    exp_feat = exp_df[common_genes]
 
     # 3. extract copy number features
     cnv_feat = compute_copy_number_ratios(

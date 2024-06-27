@@ -166,3 +166,5 @@ cython_debug/
 screendl/_version.py
 scripts/utils/
 /scratch/
+/conf/preprocessing/.scratch
+/conf/runners/dataset/.scratch

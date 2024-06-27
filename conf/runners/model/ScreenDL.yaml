@@ -3,14 +3,17 @@ name: ScreenDL
 hyper:
   epochs: 100
   batch_size: 256
+  # batch_size: 128
   learning_rate: 0.0001775
 
   activation: leaky_relu
   use_dropout: false
   use_batch_norm: false
+  use_l2: true
   use_noise: true
-  dropout_rate: 0.1
+  dropout_rate: 0.0
   noise_stddev: 0.4
+  l2_factor: 0.0001
 
   early_stopping: true
 
@@ -18,13 +21,14 @@ hyper:
     exp: [512, 256, 128, 64]
     cnv: [512, 256, 128, 64]
     mut: [512, 256, 128, 64]
-    mol: [128, 64, 32]
+    mol: [256, 128, 64]
+    # mol: [128, 64, 32]
     # exp: [256, 128, 64]
     # cnv: [256, 128, 64]
     # mut: [256, 128, 64]
     # mol: [128, 64]
     ont: []
-    shared: [64, 32, 16]
+    shared: [128, 64]
 
 feat:
   use_mut: false

@@ -12,11 +12,13 @@ import click
 import logging
 import pickle
 
+import numpy as np
 import pandas as pd
 import typing as t
 
 from pathlib import Path
 from omegaconf import OmegaConf, DictConfig
+from inmoose.pycombat import pycombat_norm
 
 from screendl.preprocessing import splits, models
 from screendl.preprocessing.data import gdsc, cmp, hci, pubchem
@@ -27,6 +29,32 @@ from screendl.preprocessing.data import (
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
+
+
+def combat_norm(
+    source_exp: pd.DataFrame, target_exp: pd.DataFrame
+) -> t.Tuple[pd.DataFrame, pd.DataFrame]:
+    """Apply combat normalization to gene expression."""
+    source_gene_vars = source_exp.var()
+    target_gene_vars = target_exp.var()
+
+    source_low_var_genes = source_gene_vars[source_gene_vars == 0].index
+    target_low_var_genes = target_gene_vars[target_gene_vars == 0].index
+    low_var_genes = source_low_var_genes.union(target_low_var_genes)
+
+    x_source = source_exp.T
+    x_target = target_exp.T
+
+    X = pd.concat([x_source, x_target], axis=1)
+    X = X[~X.index.isin(low_var_genes)]
+    batch = [0] * x_source.shape[1] + [1] * x_target.shape[1]
+
+    X_corrected = pycombat_norm(X, batch).T
+
+    x_source_corrected = X_corrected.loc[x_source.columns].copy()
+    x_target_corrected = X_corrected.loc[x_target.columns].copy()
+
+    return x_source_corrected, x_target_corrected
 
 
 def make_dataset(cfg: DictConfig) -> t.Tuple[cmp.CMPData, gdsc.GDSCData, hci.HCIData]:
@@ -76,6 +104,13 @@ def make_dataset(cfg: DictConfig) -> t.Tuple[cmp.CMPData, gdsc.GDSCData, hci.HCI
         include_all_hci_drugs=params.hci.include_all_hci_drugs,
     )
 
+    # log transform the TPM values
+    cmp_data.exp: pd.DataFrame = np.log2(cmp_data.exp + 1)
+    hci_data.exp: pd.DataFrame = np.log2(hci_data.exp + 1)
+
+    if params.use_combat:
+        cmp_data.exp, hci_data.exp = combat_norm(cmp_data.exp, hci_data.exp)
+
     # query PubCHEM annotations
     pchem_ids = set(gdsc_data.meta["pubchem_id"])
     pchem_ids = list(pchem_ids.union(hci_data.drug_meta["pubchem_id"]))
@@ -103,7 +138,7 @@ def make_dataset(cfg: DictConfig) -> t.Tuple[cmp.CMPData, gdsc.GDSCData, hci.HCI
         gdsc_data.resp.to_csv(cell_subdir / "ScreenDoseResponse.csv", index=False)
 
         cmp_data.meta.to_csv(cell_subdir / "CellLineAnnotations.csv", index=False)
-        cmp_data.exp.to_csv(cell_subdir / "OmicsGeneExpressionTPM.csv")
+        cmp_data.exp.to_csv(cell_subdir / "OmicsGeneExpressionLogTPM.csv")
         if cmp_data.mut is not None:
             cmp_data.mut.to_csv(cell_subdir / "OmicsSomaticMutations.csv", index=False)
 
@@ -114,7 +149,7 @@ def make_dataset(cfg: DictConfig) -> t.Tuple[cmp.CMPData, gdsc.GDSCData, hci.HCI
         hci_data.drug_meta.to_csv(pdmc_subdir / "DrugAnnotations.csv", index=False)
         hci_data.cell_meta.to_csv(pdmc_subdir / "CellLineAnnotations.csv", index=False)
         hci_data.resp.to_csv(pdmc_subdir / "ScreenDoseResponse.csv", index=False)
-        hci_data.exp.to_csv(pdmc_subdir / "OmicsGeneExpressionTPM.csv")
+        hci_data.exp.to_csv(pdmc_subdir / "OmicsGeneExpressionLogTPM.csv")
         if hci_data.mut is not None:
             hci_data.mut.to_csv(pdmc_subdir / "OmicsSomaticMutations.csv", index=False)
 

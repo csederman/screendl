@@ -1,5 +1,5 @@
 defaults:
-  - dataset: CellModelPassportsGDSCv2
+  - dataset: CellModelPassportsGDSCv1v2Hallmark
   - model: ScreenDL
   - _self_
 
@@ -20,11 +20,11 @@ screenahead:
     seed: 1771
     n_drugs: [5, 10, 15, 20, 25]
     selectors:
+      - uniform
       - agglomerative
-      - kmeans
+      - doptimal
       - principal
       - random
-      - uniform
   hyper:
     learning_rate: 0.0001
     batch_size: 32
