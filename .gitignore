@@ -168,3 +168,4 @@ scripts/utils/
 /scratch/
 /conf/preprocessing/.scratch
 /conf/runners/dataset/.scratch
+/pub/temp
