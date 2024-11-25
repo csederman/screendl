@@ -20,7 +20,7 @@ if t.TYPE_CHECKING:
 
 
 ScoreDict = t.Dict[str, float]
-ScoreKey: t.Literal[
+ScoreKey = t.Literal[
     "loss",
     "pcc",
     "scc",
@@ -80,10 +80,12 @@ def get_eval_metrics(pred_df: pd.DataFrame, key: ScoreKey = "loss") -> ScoreDict
         return metrics
 
     drug_metrics = pred_df.groupby("drug_id").apply(_get_metrics)
-    drug_metrics = dict(pd.DataFrame(list(drug_metrics)).mean(skipna=True))
+    mean_drug_metrics = dict(pd.DataFrame(list(drug_metrics)).mean(skipna=True))
+    median_drug_metrics = dict(pd.DataFrame(list(drug_metrics)).median(skipna=True))
 
     metrics = _get_metrics(pred_df)
-    metrics.update({f"mean_drug_{k}": v for k, v in drug_metrics.items()})
+    metrics.update({f"mean_drug_{k}": v for k, v in mean_drug_metrics.items()})
+    metrics.update({f"median_drug_{k}": v for k, v in median_drug_metrics.items()})
 
     return {"key": key, "value": metrics[key], **metrics}
 
@@ -160,3 +162,14 @@ def get_preds_vs_background(
         return pd.concat([tgt_preds, bg_preds]).reset_index(drop=True)
 
     return tgt_preds
+
+
+def get_preds(
+    M: keras.Model, D: Dataset, batch_size: int = 256, **kwargs
+) -> pd.DataFrame:
+    """Computes z-score predictions against a background distribution."""
+    gen = BatchedResponseGenerator(D, batch_size)
+    seq = gen.flow_from_dataset(D)
+    preds = M.predict(seq, verbose=0)
+
+    return make_pred_df(D, preds, **kwargs)

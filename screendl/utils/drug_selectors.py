@@ -46,13 +46,21 @@ Seed = t.Union[int, float, None]
 
 
 def get_response_matrix(
-    D: Dataset, impute: bool = True, na_threshold: float = 0.0, n_neighbors: int = 3
+    D: Dataset,
+    impute: bool = True,
+    na_threshold: float | None = None,
+    n_neighbors: int = 3,
 ) -> pd.DataFrame:
     """Converts dataset observations into a drug response matrix."""
     M = D.obs.pivot_table(index="cell_id", columns="drug_id", values="label")
-    M = M.dropna(thresh=np.floor(na_threshold * M.shape[0]), axis=1)
+
+    # drop drugs not screened in at least a given faction of cell lines
+    if na_threshold is not None:
+        M = M.dropna(thresh=np.floor(na_threshold * M.shape[0]), axis=1)
+
     if impute:
         M[:] = KNNImputer(n_neighbors=n_neighbors).fit_transform(M)
+
     return M.T
 
 

@@ -14,9 +14,9 @@ requirements = [
     "omegaconf >= 2.2, < 2.4",
     "tqdm",
     "rdkit",
-    "deepchem >= 2.7.1",
+    "deepchem == 2.7.1",
     "cdrpy",
-    "scipy",
+    "scipy == 1.8.1",
     "mygene == 3.2.2",
 ]
 
@@ -25,6 +25,7 @@ extras_require = {
         "click",
         "hydra-core >= 1.3",
         "hydra-optuna-sweeper >= 1.2.0",
+        "inmoose == 0.2.1",
     ]
 }
 

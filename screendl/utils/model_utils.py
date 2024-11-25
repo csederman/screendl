@@ -97,6 +97,7 @@ def fit_transfer_model(
     epochs: int = 10,
     learning_rate: float = 1e-4,
     weight_decay: float | None = None,
+    fit_kwargs: t.Dict[t.Any, t.Any] | None = None,
     **kwargs,
 ) -> keras.Model:
     """Trains the transfer model.
@@ -121,6 +122,9 @@ def fit_transfer_model(
     keras.Model
         The resulting model.
     """
+    if fit_kwargs is None:
+        fit_kwargs = dict()
+
     batch_gen = BatchedResponseGenerator(dataset, batch_size)
     batch_seq = batch_gen.flow_from_dataset(dataset, shuffle=True, seed=1441)
 
@@ -135,8 +139,13 @@ def fit_transfer_model(
             return lr
         return lr * tf.math.exp(-0.1)
 
-    callback = keras.callbacks.LearningRateScheduler(scheduler)
-    _ = model.fit(batch_seq, epochs=epochs, verbose=0, callbacks=[callback])
+    callbacks = fit_kwargs.get("callbacks", [])
+    if not isinstance(callbacks, list):
+        callbacks = [callbacks]
+    callbacks.append(keras.callbacks.LearningRateScheduler(scheduler))
+    fit_kwargs["callbacks"] = callbacks
+
+    _ = model.fit(batch_seq, epochs=epochs, verbose=0, **fit_kwargs)
 
     return model
 

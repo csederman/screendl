@@ -240,7 +240,9 @@ def model_trainer(
     """
     params = cfg.model
 
-    opt = keras.optimizers.Adam(learning_rate=params.hyper.learning_rate)
+    opt = keras.optimizers.Adam(
+        learning_rate=params.hyper.learning_rate, weight_decay=params.hyper.weight_decay
+    )
 
     save_dir = "." if params.io.save is True else None
     log_dir = "./logs" if params.io.tensorboard is True else None
