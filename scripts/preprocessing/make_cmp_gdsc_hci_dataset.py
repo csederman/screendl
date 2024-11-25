@@ -105,8 +105,8 @@ def make_dataset(cfg: DictConfig) -> t.Tuple[cmp.CMPData, gdsc.GDSCData, hci.HCI
     )
 
     # log transform the TPM values
-    cmp_data.exp: pd.DataFrame = np.log2(cmp_data.exp + 1)
-    hci_data.exp: pd.DataFrame = np.log2(hci_data.exp + 1)
+    cmp_data.exp = np.log2(cmp_data.exp + 1)
+    hci_data.exp = np.log2(hci_data.exp + 1)
 
     if params.use_combat:
         cmp_data.exp, hci_data.exp = combat_norm(cmp_data.exp, hci_data.exp)
@@ -230,6 +230,7 @@ def make_meta(
     # generate metadata inputs
     cols = ["model_id", "cancer_type", "model_type", "domain"]
     cell_meta = cell_meta[cols].set_index("model_id").rename_axis(index="cell_id")
+    # cell_meta = cell_meta.set_index("model_id").rename_axis(index="cell_id")
 
     cols = ["drug_name", "pubchem_id", "smiles"]
     drug_meta = drug_meta[cols].set_index("drug_name").rename_axis(index="drug_id")

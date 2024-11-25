@@ -34,7 +34,7 @@ PIPELINES = {
 }
 
 
-@hydra.main(version_base=None, config_path="../../conf/runners", config_name="config")
+@hydra.main(version_base=None, config_path="../../conf/runners", config_name="basic")
 def run(cfg: DictConfig) -> None:
     """"""
     if not cfg.model.name in PIPELINES:

@@ -3,17 +3,17 @@ name: ScreenDL
 hyper:
   epochs: 100
   batch_size: 256
-  # batch_size: 128
-  learning_rate: 0.0001775
+  learning_rate: 0.0001
 
   activation: leaky_relu
   use_dropout: false
   use_batch_norm: false
-  use_l2: true
+  use_l2: false
   use_noise: true
   dropout_rate: 0.0
-  noise_stddev: 0.4
-  l2_factor: 0.0001
+  noise_stddev: 0.3
+  l2_factor: 1e-4
+  weight_decay: 1e-4
 
   early_stopping: true
 
