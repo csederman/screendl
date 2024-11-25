@@ -1,0 +1,84 @@
+_datastore_: "/scratch/ucgd/lustre-labs/marth/scratch/u0871891/datastore"
+_project_: "/scratch/ucgd/lustre-labs/marth/scratch/u0871891/projects/screendl"
+
+dataset:
+  dir: "${_datastore_}/datasets/${dataset.name}"
+  name: CellModelPassports-GDSCv1v2-HCI
+  save: True
+  paths:
+    gdsc:
+      meta: "${_datastore_}/raw/GDSC/drug_list_2023_06_23_curation.csv"
+      resp:
+        - "${_datastore_}/raw/GDSC/GDSC1_fitted_dose_response_24Jul22.xlsx"
+        - "${_datastore_}/raw/GDSC/GDSC2_fitted_dose_response_24Jul22.xlsx"
+    cmp:
+      meta: "${_datastore_}/raw/CellModelPassports/model_list_20230608.csv"
+      exp: "${_datastore_}/raw/CellModelPassports/rnaseq_tpm_20220624.csv"
+      vcf: null
+    hci:
+      pdmc_meta: "${_datastore_}/processed/WelmFinal/PDMCAnnotations.csv"
+      drug_meta: "${_datastore_}/processed/WelmFinal/DrugAnnotations.csv"
+      resp: "${_datastore_}/processed/WelmFinal/ScreenDoseResponse.csv"
+      exp: "${_datastore_}/processed/WelmFinal/OmicsGeneExpressionTPM.csv"
+      mut: null
+    pubchem:
+      cache: "${_datastore_}/raw/PubCHEM/properties.json"
+
+  params:
+    cmp:
+      required_info_columns:
+        - ploidy_wes
+        - cancer_type
+      cancer_type_blacklist: null
+      min_cells_per_cancer_type: 20
+    gdsc:
+      gr_metric: "ln_ic50"
+      log_transform: false
+    hci:
+      pdmc_model_types:
+        # in order of priority
+        - "pdx"
+        - "pdxo"
+        - "pdo"
+      include_all_hci_drugs: true
+      min_samples_per_drug: 5
+      gr_metric: "LN_IC50"
+      log_transform: false
+    use_combat: true
+
+splits:
+  dir: "${_datastore_}/inputs/${dataset.name}/splits"
+  params:
+    n_splits: 10
+    seed: 1771
+
+inputs:
+  dir: "${_datastore_}/inputs/${dataset.name}"
+  include:
+    - HiDRA
+    - ScreenDL
+  hidra:
+    paths:
+      gmt: "${_project_}/pkg/HiDRA/Training/geneset.gmt"
+    params:
+      use_gene_symbol_map: true
+  screendl:
+    paths:
+      exp_gene_list: "${_datastore_}/processed/genelists/HallmarkPathways4384Genes.pkl"
+      cnv_gene_list: null
+      mut_gene_list: null
+    params:
+      exp_min_var_threshold: null
+      exp_log_transform: false
+      cnv_min_var_threshold: null
+      cnv_log_transform: true
+      mut_min_samples_per_gene: 10
+      ont_min_samples_per_ct: 5
+      ont_ct_blacklist:
+        - Other Solid Cancers
+        - Other Blood Cancers
+        - Other Sarcomas
+        - Non-Cancerous
+        - Unknown
+      mol_n_bits: 512
+      mol_radius: 3
