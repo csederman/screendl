@@ -16,10 +16,10 @@ dataset:
       exp: "${_datastore_}/raw/CellModelPassports/rnaseq_tpm_20220624.csv"
       vcf: null
     hci:
-      pdmc_meta: "${_datastore_}/processed/WelmFinal/PDMCAnnotations.csv"
-      drug_meta: "${_datastore_}/processed/WelmFinal/DrugAnnotations.csv"
-      resp: "${_datastore_}/processed/WelmFinal/ScreenDoseResponse.csv"
-      exp: "${_datastore_}/processed/WelmFinal/OmicsGeneExpressionTPM.csv"
+      pdmc_meta: "${_datastore_}/processed/WelmHarmony/PDMCAnnotations.csv"
+      drug_meta: "${_datastore_}/processed/WelmHarmony/DrugAnnotations.csv"
+      resp: "${_datastore_}/processed/WelmHarmony/ScreenDoseResponse.csv"
+      exp: "${_datastore_}/processed/WelmHarmony/OmicsGeneExpressionTPM.csv"
       mut: null
     pubchem:
       cache: "${_datastore_}/raw/PubCHEM/properties.json"
@@ -40,6 +40,7 @@ dataset:
         - "pdx"
         - "pdxo"
         - "pdo"
+        - "patient"
       include_all_hci_drugs: true
       min_samples_per_drug: 5
       gr_metric: "LN_IC50"

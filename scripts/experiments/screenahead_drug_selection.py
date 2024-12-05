@@ -54,6 +54,7 @@ def run_single_sample(
         model,
         optim=keras.optimizers.Adam(hparams.learning_rate),
         frozen_layer_prefixes=("mol", "exp", "ont", "mut", "cnv"),
+        training=False,
     )
 
     screen_drugs = selector.select(num_drugs, choices=set(dataset.drug_ids))
