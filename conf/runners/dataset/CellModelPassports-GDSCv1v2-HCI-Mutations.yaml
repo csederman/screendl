@@ -1,6 +1,6 @@
 name: CellModelPassports-GDSCv1v2-HCI-Mutations
 
-dir: "/scratch/ucgd/lustre-work/marth/u0871891/datastore/inputs/CellModelPassports-GDSCv1v2-HCI-Mutations"
+dir: "/scratch/ucgd/lustre-labs/marth/scratch/u0871891/datastore/inputs/${dataset.name}"
 
 split:
   dir: "${dataset.dir}/splits"

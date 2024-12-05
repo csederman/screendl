@@ -59,6 +59,8 @@ pip install .[scripts]
 
 ## Running ScreenDL
 
+ScreenDL uses [Hydra](https://hydra.cc/) for config management. To run ScreenDL, update the demo config files and then run one of the following commands.
+
 ### Data Preparation
 
 All datasets used to train and evaluate ScreenDL are available as `tar.gz` archives in the `cdrpy-data` repo.
@@ -87,6 +89,8 @@ Note that running benchmarking experiments requires the additional dependencies 
 
 ### HiDRA
 
+#### Cell line benchmarking
+
 Clone the HiDRA repo and checkout the `cdrpy-benchmarking` branch.
 
 ```{bash}
@@ -99,6 +103,7 @@ To train HiDRA on a single fold:
 ```{bash}
 HIDRA_ROOT="<path to HiDRA repo>" python scripts/runnners/run.py \
     model=HiDRA-legacy \
+    dataset=CellModelPassports-GDSCv1v2 \
     dataset.preprocess.norm=global
 ```
 
@@ -107,12 +112,26 @@ To run HiDRA on all training folds, use:
 ```{bash}
 HIDRA_ROOT="<path to HiDRA repo>" python scripts/runnners/run.py -m \
     model=HiDRA-legacy \
+    dataset=CellModelPassports-GDSCv1v2 \
     dataset.preprocess.norm=global
 ```
+
+#### PDxO/PDX benchmarking
+
+```{bash}
+HIDRA_ROOT="<path to HiDRA repo>" python scripts/experiments/pdx_benchmarking.py -m \
+    model=HiDRA-legacy \
+    dataset=CellModelPassports-GDSCv1v2-HCI \
+    dataset.preprocess.norm=global
+```
+
+### More about HiDRA
 
 For more information on HiDRA, checkout the original publication: [HiDRA: Hierarchical Network for Drug Response Prediction with Attention](https://doi.org/10.1021/acs.jcim.1c00706)
 
 ### DualGCN
+
+#### Cell line benchmarking
 
 Clone the DualGCN repo and checkout the `cdrpy-benchmarking` branch
 
@@ -126,6 +145,7 @@ To train DualGCN on a single fold:
 ```{bash}
 DUALGCN_ROOT="/<path to DualGCN repo>/code" python scripts/runnners/run.py \
     model=DualGCN-legacy \
+    dataset=CellModelPassports-GDSCv1v2 \
     dataset.preprocess.norm=global
 ```
 
@@ -134,12 +154,17 @@ To run DualGCN on all training folds, use:
 ```{bash}
 DUALGCN_ROOT="/<path to DualGCN repo>/code" python scripts/runnners/run.py -m \
     model=DualGCN-legacy \
+    dataset=CellModelPassports-GDSCv1v2 \
     dataset.preprocess.norm=global
 ```
+
+#### More about DualGCN
 
 For more information on DualGCN, checkout the original publication: [DualGCN: a dual graph convolutional network model to predict cancer drug response](https://doi.org/10.1186/s12859-022-04664-4)
 
 ### DeepCDR
+
+#### Cell line benchmarking
 
 Clone the DeepCDR repo and checkout the `cdrpy-benchmarking` branch
 
@@ -151,29 +176,33 @@ git checkout cdrpy-benchmarking
 To train DeepCDR on a single fold:
 
 ```{bash}
-DEEPCDR_ROOT="/<path to DeepCDR repo>/prog python scripts/runnners/run.py \
+DEEPCDR_ROOT="/<path to DeepCDR repo>/prog" python scripts/runnners/run.py \
     model=DeepCDR-legacy \
+    dataset=CellModelPassports-GDSCv1v2 \
     dataset.preprocess.norm=global
 ```
 
 To run DeepCDR on all training folds, use:
 
 ```{bash}
-DEEPCDR_ROOT="/<path to DeepCDR repo>/prog python -m scripts/runnners/run.py \
+DEEPCDR_ROOT="/<path to DeepCDR repo>/prog" python -m scripts/runnners/run.py \
     model=DeepCDR-legacy \
+    dataset=CellModelPassports-GDSCv1v2 \
+    dataset.preprocess.norm=global
+```
+
+#### PDxO/PDX benchmarking
+
+```{bash}
+DEEPCDR_ROOT="/<path to DeepCDR repo>/prog" python scripts/experiments/pdx_benchmarking.py -m \
+    model=DeepCDR-legacy \
+    dataset=CellModelPassports-GDSCv1v2-HCI-Mutations \
     dataset.preprocess.norm=global
 ```
 
 For more information on DeepCDR, checkout the original publication: [DeepCDR: a hybrid graph convolutional network for predicting cancer drug response](https://doi.org/10.1093/bioinformatics/btaa822)
 
 ## Datasets & Inputs
-
-TODO: make data directory in the same directory as this repo and symlink files to avoid confusing paths
-
-1. make_dataset.sh (wrapper around make_dataset.py)
-2. make_labels.sh (wrapper around make_labels.py)
-3. make_folds.sh (wrapper around make_folds.py)
-4. make_inputs.sh (wrapper around make_inputs.py)
 
 ## Citing ScreenDL
 

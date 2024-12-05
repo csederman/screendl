@@ -302,6 +302,7 @@ def model_evaluator(
         ds_dir = Path("./datasets")
         ds_dir.mkdir()
         for ds in datasets:
+            # FIXME: this functionality is deprecated
             ds.save(ds_dir / f"{ds.name}.h5")
 
     return scores

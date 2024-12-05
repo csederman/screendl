@@ -1,5 +1,13 @@
 #!/usr/bin/env python
-"""Runs transfer learning experiments on the HCI dataset."""
+"""Runs ScreenAhead when adding an increasing number of functionaly-related therapies.
+
+Usage
+=====
+>>> python scripts/experiments/screenahead_related_drugs.py \
+        -m \
+        dataset.split.id=1,2,3,4,5 \
+        experiment.drug_id="5-Fluorouracil","Leflunomide","Epirubicin"
+"""
 
 from __future__ import annotations
 

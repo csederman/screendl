@@ -1,9 +1,9 @@
 defaults:
   - _self_
-  - dataset: CellModelPassportsGDSCv1v2Hallmark
+  - dataset: CellModelPassports-GDSCv1v2
   - model: ScreenDL
 
-_datastore_: /scratch/ucgd/lustre-work/marth/u0871891/datastore
+_datastore_: /scratch/ucgd/lustre-labs/marth/scratch/u0871891/datastore
 _experiment_: ${_datastore_}/outputs/experiments/screenahead_gds_compare
 
 hydra:
