@@ -3,7 +3,7 @@ defaults:
   - model: ScreenDL
   - _self_
 
-_datastore_: "data"
+_datastore_: "${hydra:runtime.cwd}/data"
 
 hydra:
   run:
