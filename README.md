@@ -207,7 +207,7 @@ HIDRA_ROOT="<path to HiDRA repo>" python scripts/experiments/pdx_benchmarking.py
     dataset.preprocess.norm=global
 ```
 
-### More about HiDRA
+#### More about HiDRA
 
 For more information on HiDRA, checkout the original publication: [HiDRA: Hierarchical Network for Drug Response Prediction with Attention](https://doi.org/10.1021/acs.jcim.1c00706)
 
@@ -267,7 +267,7 @@ DEEPCDR_ROOT="/<path to DeepCDR repo>/prog" python scripts/runnners/run.py \
 To run DeepCDR on all training folds, use:
 
 ```{bash}
-DEEPCDR_ROOT="/<path to DeepCDR repo>/prog" python -m scripts/runnners/run.py \
+DEEPCDR_ROOT="/<path to DeepCDR repo>/prog" python scripts/runnners/run.py -m \
     model=DeepCDR-legacy \
     dataset=CellModelPassports-GDSCv1v2 \
     dataset.preprocess.norm=global
