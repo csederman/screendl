@@ -22,4 +22,4 @@ output:
   log: logs
 
 pdx_iter: 1
-pdx_path: ${_datastore_}/processed/WelmPDX/ScreenClinicalResponseV14B20.csv
+pdx_path: ${_datastore_}/pdx/pdx_clinical_response.csv
