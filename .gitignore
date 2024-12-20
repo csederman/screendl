@@ -170,5 +170,6 @@ scripts/utils/
 /conf/runners/dataset/.scratch
 /pub/temp
 /scripts/experiments/learning_curves
-/conf/runners/learning_curves.yaml
-/conf/runners/learning_curve_folds.yaml
+/conf/runners/learning_curve*.yaml
+/conf/runners/*.local.yaml
+/conf/runners/dataset/*.local.yaml
