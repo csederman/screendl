@@ -18,7 +18,7 @@
 
 ## Requirements
 
-ScreenDL was developed using Python 3.9.13 and requires the following packages:
+ScreenDL was developed using Python 3.9.13 and requires the following packages (see Installation):
 
 - numpy (>= 1.21)
 - pandas (>= 2.0.3)
