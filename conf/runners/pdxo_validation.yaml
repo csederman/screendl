@@ -3,7 +3,7 @@ defaults:
   - dataset: CellModelPassports-GDSCv1v2-HCI
   - model: ScreenDL
 
-_datastore_: /scratch/ucgd/lustre-labs/marth/scratch/u0871891/datastore
+_datastore_: ${hydra:runtime.cwd}/data
 _experiment_: ${_datastore_}/outputs/experiments/pdxo_validation
 
 hydra:
