@@ -3,13 +3,14 @@
 ## Contents
 
 * [Requirements](#requirements)
+* [Additional Hardware & Software Requirements](#additional-hardware--software-requirements)
 * [Installation](#installation)
 * [Running ScreenDL](#running-screendl)
     * [Data Preparation](#data-preparation)
     * [Training and Evaluation](#training-and-evaluation)
     * [Running with ScreenAhead](#running-with-screenahead)
-* [Running with IMPROVE](#running-with-improve)
 * [Benchmarking Experiments](#benchmarking-experiments)
+* [Running with IMPROVE](#running-with-improve)
 * [Citing ScreenDL](#citing-screendl)
 * [References](#references)
     * [Models](#models)
@@ -17,44 +18,57 @@
 
 ## Requirements
 
-ScreenDL currently supports Python 3.8 and requires the following packages:
+ScreenDL was developed using Python 3.9.13 and requires the following packages:
+
 - numpy (>= 1.21)
 - pandas (>= 2.0.3)
 - openpyxl (== 3.1.2)
-- tensorflow
-- tensorflow-probability
-- scikit-learn
-- omegaconf
+- tensorflow (== 2.11.1)
+- tensorflow-probability (== 0.19.0)
+- scikit-learn (== 1.3.0)
+- omegaconf (>= 2.2, < 2.4)
 - tqdm
 - rdkit
 - deepchem (== 2.7.1)
 - cdrpy
-- scipy
+- scipy (== 1.8.1)
 - inmoose (== 0.2.1)
 
-Most of these packages are installed automatically, however, cdrpy requires manual installation. For cdrpy install instructions visit https://github.com/csederman/cdrpy.
+## Additional Hardware & Software Requirements
+
+All ScreenDL models were trained on GPU nodes provided by the Utah Center for High Performance Computing equipped with either NVIDIA GTX 1080 Ti GPUs with 3584 CUDA cores and 11 GB GDDR5X memory or NVIDIA A40 GPUs with 10,752 CUDA cores and 48 GB GDDR6 memory using cuda/11.3 and cudnn/8.2.0. *We note that ScreenDL can be trained using standard CPUs and does not require GPU hardware.*
 
 ## Installation
 
-### Install from GitHub source
+Most of ScreenDL's dependencies are installed automatically, however, cdrpy requires manual installation (see below). We recommend first installing tensorflow and tensorflow-probability mannually prior to the installation of cdrpy as outlined below (<15 minutes):
 
-First, clone the ScreenDL repository:
+1. Setup a new conda environment:
 
-```bash
-git clone https://github.com/csederman/screendl.git
+```{bash}
+conda create --name screendl-env python=3.9.13
+conda activate screendl-env
 ```
 
-Then, `cd` into the screendl directory and install the library:
+2. Install tensorflow and tensorflow-probability:
 
-```bash
-cd screendl
-pip install .
+```{bash}
+pip install tensorflow==2.11.1
+pip install tensorflow-probability==0.19.0
 ```
 
-ScreenDL provides a number of scripts for running various experiments. To install the additional dependencies required for running these scripts run:
+3. Install cdrpy:
 
-```bash
-pip install .[scripts]
+```{bash}
+git clone https://github.com/csederman/cdrpy.git && cd cdrpy
+pip install --upgrade .
+```
+
+4. Install screendl:
+
+```{bash}
+cd ..
+git clone https://github.com/csederman/screendl.git && cd screendl
+pip install --upgrade ".[scripts]"
 ```
 
 ## Running ScreenDL
@@ -63,29 +77,92 @@ ScreenDL uses [Hydra](https://hydra.cc/) for config management. To run ScreenDL,
 
 ### Data Preparation
 
-All datasets used to train and evaluate ScreenDL are available as `tar.gz` archives in the `cdrpy-data` repo.
+All datasets used to train and evaluate ScreenDL are available as `tar.gz` in this repo under `data/datasets`. To train ScreenDL, unpack that `tar.gz` archives with the following commands:
+
+```{bash}
+mkdir <dataset name>
+tar -xvzf <path to dataset archive> -C <dataset name>
+```
+
+For example, to unpack the CellModelPassports-GDSCv1v2 dataset run:
+
+```{bash}
+cd screendl/data/datasets
+mkdir CellModelPassports-GDSCv1v2
+tar -xvzf CellModelPassports-GDSCv1v2.tar.gz -C CellModelPassports-GDSCv1v2
+```
+
+Note that ScreenDL uses [Hydra](https://hydra.cc/) for config management. After unpacking that `tar.gz` archive and before running ScreenDL, the configuration files under `conf/runners` must be updated with the appropriate file paths (detailed below).
+
+### Configuring ScreenDL
+
+ScreenDL's inputs and hyperparameters are configured using [Hydra](https://hydra.cc/). Config files for all scripts can be found under `screendl/conf`. In what follows, we outline the required config file updates for basic ScreenDL functionality using the CellModelPassports-GDSCv1v2 as an example. Specifically, the required config file updates are:
+
+#### Update the file paths in a given script's config file
+
+All ScreenDL scripts are configured with a `_datastore_` field that specifies the root directory for ScreenDL's outputs (and optionally inputs). This `_datastore_` field must be updated to point to the appropriate directory on the user's system. For example, to save ScreenDL's outputs under `/<path to screendl repo>/screendl/data` the corresponding `_datastore_` field for a given config should be set to `/<path to screendl repo>/screendl/data`.
+
+#### Update the corresponding dataset config file with the appropriate file paths
+
+We leverage Hydra's nested configuration system to mange the configuration of multiple datasets. In order for ScreenDL to read a given dataset (i.e., CellModelPassports-GDSCv1v2), the config field `dataset.dir` must be updated to point to the location of the corresponding extracted `tar.gz` archive. *We recommend using expanded file paths when updating config files.* For example, for CellModelPassports-GDSCv1v2, update the `dir` field under `conf/runners/datasets/CellModelPassports-GDSCv1v2` to point to the root directory of the extracted dataset. For example, if you extracted the CellModelPassports-GDSCv1v2 dataset to `screendl/data/datasets/CellModelPassports-GDSCv1v2` update the `dir` field in `conf/runners/datasets/CellModelPassports-GDSCv1v2` to `/<path to screendl repo>/data/datasets/CellModelPassports-GDSCv1v2`.
+
+#### Update PDX data file paths
+
+A subset of scripts (`scripts/experiments/pdx_benchmarking.py` and `scripts/experiments/pdx_validation.py`) require PDX input files. The corresponding configs must be updated accordingly.
 
 ### Training and Evaluation
 
-To perform basic training and evaluation of ScreenDL, run:
+Note that running benchmarking experiments requires the additional dependencies installed by running `pip install .[scripts]`. To perform basic training and evaluation of ScreenDL, run:
 
 ```{bash}
 python scripts/runners/run.py
 ```
 
+The typical runtime for basic training of ScreenDL is <30min for a single train/test split.
+
 ### Running with ScreenAhead
 
-To train and evaluate ScreenDL with ScreenAhead tumor-specific fine-tuning, run:
+To train and evaluate ScreenDL with **ScreenAhead tumor-specific fine-tuning**, run:
 
 ```{bash}
 python scripts/runners/run_sa.py
 ```
 
-## Running with IMPROVE
+The typical runtime for training of ScreenDL with ScreenAhead is <1hr.
+
+### Running PDX/PDXO Experiments
+
+#### PDXO Validation
+
+To run the full PDXO validation pipeline, run the following command:
+
+```{bash}
+python scripts/experiments/pdxo_validation.py -m
+```
+
+This command will train an ensemble of 10 ScreenDL models using different subsets of cell lines and perform domain-specific fine-tuning and ScreenAhead tumor-specific fine-tuning under leave-one-out cross-validation. To train a single model, run:
+
+```{bash}
+python scripts/experiments/pdxo_validation.py
+```
+
+#### PDX Validation
+
+To run the PDX validation pipeline, run the following command:
+
+```{bash}
+python scripts/experiments/pdx_validation.py -m
+```
+
+This command will train an ensemble of 10 ScreenDL models using different subsets of cell lines and perform domain-specific fine-tuning and ScreenAhead tumor-specific fine-tuning under leave-one-out cross-validation. To train a single model, run:
+
+```{bash}
+python scripts/experiments/pdx_validation.py
+```
 
 ## Benchmarking Experiments
 
-Note that running benchmarking experiments requires the additional dependencies installed by running `pip install screendl[scripts]`.
+Note that running benchmarking experiments requires the additional dependencies installed by running `pip install .[scripts]`.
 
 ### HiDRA
 
@@ -116,7 +193,7 @@ HIDRA_ROOT="<path to HiDRA repo>" python scripts/runnners/run.py -m \
     dataset.preprocess.norm=global
 ```
 
-#### PDxO/PDX benchmarking
+#### PDXO/PDX benchmarking
 
 ```{bash}
 HIDRA_ROOT="<path to HiDRA repo>" python scripts/experiments/pdx_benchmarking.py -m \
@@ -191,7 +268,7 @@ DEEPCDR_ROOT="/<path to DeepCDR repo>/prog" python -m scripts/runnners/run.py \
     dataset.preprocess.norm=global
 ```
 
-#### PDxO/PDX benchmarking
+#### PDXO/PDX benchmarking
 
 ```{bash}
 DEEPCDR_ROOT="/<path to DeepCDR repo>/prog" python scripts/experiments/pdx_benchmarking.py -m \
@@ -202,9 +279,11 @@ DEEPCDR_ROOT="/<path to DeepCDR repo>/prog" python scripts/experiments/pdx_bench
 
 For more information on DeepCDR, checkout the original publication: [DeepCDR: a hybrid graph convolutional network for predicting cancer drug response](https://doi.org/10.1093/bioinformatics/btaa822)
 
-## Datasets & Inputs
+## Running with IMPROVE
 
 ## Citing ScreenDL
+
+[1]: Casey Sederman, Chieh-Hsiang Yang, Emilio Cortes-Sanchez, Tony Di Sera, Xiaomeng Huang, Sandra D. Scherer, Ling Zhao, Zhengtao Chu, Eliza R. White, Aaron Atkinson, Jadon Wagstaff, Katherine E. Varley, Michael T. Lewis, Yi Qiao, Bryan E. Welm, Alana L. Welm, Gabor T. Marth, A precision oncology-focused deep learning framework for personalized selection of cancer therapy, bioRxiv 2024.12.12.628190; doi: [https://doi.org/10.1101/2024.12.12.628190](https://doi.org/10.1101/2024.12.12.628190)
 
 ## References
 

@@ -20,7 +20,7 @@ hydra:
 
 xfer:
   hyper:
-    epochs: 20
+    epochs: 30
     batch_size: 256
     learning_rate: 1e-4
     weight_decay: 1e-2
