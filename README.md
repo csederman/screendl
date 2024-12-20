@@ -104,7 +104,7 @@ All ScreenDL scripts are configured with a `_datastore_` field that specifies th
 
 #### Update the corresponding dataset config file with the appropriate file paths
 
-We leverage Hydra's nested config system to manage the configuration of multiple datasets simultaneously. In order for ScreenDL to read a given dataset (i.e., CellModelPassports-GDSCv1v2), the config field `dataset.dir` must be updated to point to the location of the corresponding extracted `tar.gz` archive. *Note that we recommend using expanded file paths when updating config files.* For example, for CellModelPassports-GDSCv1v2, update the `dir` field under `conf/runners/datasets/CellModelPassports-GDSCv1v2.yaml` to point to the root directory of the extracted dataset. For example, if you extracted the CellModelPassports-GDSCv1v2 dataset to `screendl/data/datasets/CellModelPassports-GDSCv1v2` update the `dir` field in `conf/runners/datasets/CellModelPassports-GDSCv1v2.yaml` to `/<path to screendl repo>/data/datasets/CellModelPassports-GDSCv1v2`.
+We leverage Hydra's nested config system to manage the configuration of multiple datasets simultaneously. In order for ScreenDL to read a given dataset (i.e., CellModelPassports-GDSCv1v2), the config field `dataset.dir` must be updated to point to the location of the corresponding extracted `tar.gz` archive. *Note that we recommend using expanded file paths when updating config files.* For example, for CellModelPassports-GDSCv1v2, update the `dir` field under `conf/runners/dataset/CellModelPassports-GDSCv1v2.yaml` to point to the root directory of the extracted dataset. For example, if you extracted the CellModelPassports-GDSCv1v2 dataset to `screendl/data/datasets/CellModelPassports-GDSCv1v2` update the `dir` field in `conf/runners/dataset/CellModelPassports-GDSCv1v2.yaml` to `/<path to screendl repo>/data/datasets/CellModelPassports-GDSCv1v2`.
 
 #### Update PDX data file paths
 
@@ -125,7 +125,7 @@ The typical runtime for basic training of ScreenDL is <30min for a single train/
 To train and evaluate ScreenDL with **ScreenAhead tumor-specific fine-tuning**, run:
 
 ```{bash}
-python scripts/runners/run_sa.py
+python scripts/runners/run_screenahead.py
 ```
 
 The typical runtime for training of ScreenDL with ScreenAhead is <1hr.
