@@ -92,11 +92,9 @@ mkdir CellModelPassports-GDSCv1v2
 tar -xvzf CellModelPassports-GDSCv1v2.tar.gz -C CellModelPassports-GDSCv1v2
 ```
 
-Note that ScreenDL uses [Hydra](https://hydra.cc/) for config management. After unpacking the `tar.gz` archive and before running ScreenDL, the configuration files under `conf/runners` must be updated with the appropriate file paths (detailed below).
-
 ### Configuring ScreenDL
 
-ScreenDL's inputs and hyperparameters are configured using [Hydra](https://hydra.cc/). Config files for all scripts can be found under the `conf` subdirectory of the screendl repo. In what follows, we outline the required config file updates for basic ScreenDL functionality using the CellModelPassports-GDSCv1v2 dataset as an example. Specifically, the required config file updates are:
+ScreenDL's inputs and hyperparameters are configured using [Hydra](https://hydra.cc/). Config files for all scripts can be found under the `conf` subdirectory of the screendl repo. **ScreenDL's default configuration assumes that datasets have been extracted into the `data/datasets` directory following the steps outlined in Data Preparation above.** If you have extracted the data according to the procedure outlined above, you may skip this section and procede directly to Training and Evaluation. ScreenDL can also be manually configured by updating the necessary file paths. In what follows, we outline the required manual config file updates for basic ScreenDL functionality using the CellModelPassports-GDSCv1v2 dataset as an example:
 
 #### Update the file paths in a given script's config file
 
@@ -118,7 +116,7 @@ Note that running benchmarking experiments requires the additional dependencies 
 python scripts/runners/run.py
 ```
 
-The typical runtime for basic training of ScreenDL is <30min for a single train/test split.
+The typical CPU runtime for basic training of ScreenDL is <30min for a single train/test split.
 
 ### Running with ScreenAhead
 
@@ -128,7 +126,7 @@ To train and evaluate ScreenDL with **ScreenAhead tumor-specific fine-tuning**, 
 python scripts/runners/run_screenahead.py
 ```
 
-The typical runtime for training of ScreenDL with ScreenAhead is <1hr.
+The typical runtime for training of ScreenDL with ScreenAhead is <30min for a single train/test split.
 
 ### Running PDX/PDXO Experiments
 
@@ -140,7 +138,7 @@ To run the full PDXO validation pipeline, run the following command:
 python scripts/experiments/pdxo_validation.py -m
 ```
 
-This command will train an ensemble of 10 ScreenDL models using different subsets of cell lines and perform domain-specific fine-tuning and ScreenAhead tumor-specific fine-tuning under leave-one-out cross-validation. To train a single model, run:
+This command will train an ensemble of 10 ScreenDL models using different subsets of cell lines and both perform domain-specific fine-tuning and ScreenAhead tumor-specific fine-tuning under leave-one-out cross-validation. To train a single model, run:
 
 ```{bash}
 python scripts/experiments/pdxo_validation.py
