@@ -46,7 +46,7 @@ screenahead:
     frozen_layer_names: null
 
 experiment:
-  pdx_obs_path: ${_datastore_}/processed/WelmPDX/ScreenClinicalResponseV14B20.csv
+  pdx_obs_path: ${_datastore_}/pdx/pdx_clinical_response.csv
   pdx_ids: null
   keep_pdmc_only_drugs: all
   min_pdmcs_per_drug: 8
