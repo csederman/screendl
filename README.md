@@ -40,7 +40,7 @@ All ScreenDL models were trained on GPU nodes provided by the Utah Center for Hi
 
 ## Installation
 
-Most of ScreenDL's dependencies are installed automatically, however, cdrpy requires manual installation (see below). We recommend first installing tensorflow and tensorflow-probability mannually prior to the installation of cdrpy as outlined below (<15 minutes):
+Most of ScreenDL's dependencies are installed automatically, however, cdrpy requires manual installation. We recommend first installing tensorflow and tensorflow-probability mannually prior to the installation of cdrpy as outlined below (<15 minutes):
 
 1. Setup a new conda environment:
 
@@ -73,11 +73,11 @@ pip install --upgrade ".[scripts]"
 
 ## Running ScreenDL
 
-ScreenDL uses [Hydra](https://hydra.cc/) for config management. To run ScreenDL, update the demo config files and then run one of the following commands.
+ScreenDL uses [Hydra](https://hydra.cc/) for config management. To run ScreenDL, follow the instructions below to update the demo config files and prepare the input data.
 
 ### Data Preparation
 
-All datasets used to train and evaluate ScreenDL are available as `tar.gz` in this repo under `data/datasets`. To train ScreenDL, unpack that `tar.gz` archives with the following commands:
+All datasets used to train and evaluate ScreenDL are available as `tar.gz` archives in this repo under `data/datasets`. To train ScreenDL, unpack that `tar.gz` archives with the following commands:
 
 ```{bash}
 mkdir <dataset name>
@@ -92,11 +92,11 @@ mkdir CellModelPassports-GDSCv1v2
 tar -xvzf CellModelPassports-GDSCv1v2.tar.gz -C CellModelPassports-GDSCv1v2
 ```
 
-Note that ScreenDL uses [Hydra](https://hydra.cc/) for config management. After unpacking that `tar.gz` archive and before running ScreenDL, the configuration files under `conf/runners` must be updated with the appropriate file paths (detailed below).
+Note that ScreenDL uses [Hydra](https://hydra.cc/) for config management. After unpacking the `tar.gz` archive and before running ScreenDL, the configuration files under `conf/runners` must be updated with the appropriate file paths (detailed below).
 
 ### Configuring ScreenDL
 
-ScreenDL's inputs and hyperparameters are configured using [Hydra](https://hydra.cc/). Config files for all scripts can be found under `screendl/conf`. In what follows, we outline the required config file updates for basic ScreenDL functionality using the CellModelPassports-GDSCv1v2 as an example. Specifically, the required config file updates are:
+ScreenDL's inputs and hyperparameters are configured using [Hydra](https://hydra.cc/). Config files for all scripts can be found under the `conf` subdirectory of the screendl repo. In what follows, we outline the required config file updates for basic ScreenDL functionality using the CellModelPassports-GDSCv1v2 dataset as an example. Specifically, the required config file updates are:
 
 #### Update the file paths in a given script's config file
 
@@ -104,7 +104,7 @@ All ScreenDL scripts are configured with a `_datastore_` field that specifies th
 
 #### Update the corresponding dataset config file with the appropriate file paths
 
-We leverage Hydra's nested configuration system to mange the configuration of multiple datasets. In order for ScreenDL to read a given dataset (i.e., CellModelPassports-GDSCv1v2), the config field `dataset.dir` must be updated to point to the location of the corresponding extracted `tar.gz` archive. *We recommend using expanded file paths when updating config files.* For example, for CellModelPassports-GDSCv1v2, update the `dir` field under `conf/runners/datasets/CellModelPassports-GDSCv1v2` to point to the root directory of the extracted dataset. For example, if you extracted the CellModelPassports-GDSCv1v2 dataset to `screendl/data/datasets/CellModelPassports-GDSCv1v2` update the `dir` field in `conf/runners/datasets/CellModelPassports-GDSCv1v2` to `/<path to screendl repo>/data/datasets/CellModelPassports-GDSCv1v2`.
+We leverage Hydra's nested config system to manage the configuration of multiple datasets simultaneously. In order for ScreenDL to read a given dataset (i.e., CellModelPassports-GDSCv1v2), the config field `dataset.dir` must be updated to point to the location of the corresponding extracted `tar.gz` archive. *Note that we recommend using expanded file paths when updating config files.* For example, for CellModelPassports-GDSCv1v2, update the `dir` field under `conf/runners/datasets/CellModelPassports-GDSCv1v2.yaml` to point to the root directory of the extracted dataset. For example, if you extracted the CellModelPassports-GDSCv1v2 dataset to `screendl/data/datasets/CellModelPassports-GDSCv1v2` update the `dir` field in `conf/runners/datasets/CellModelPassports-GDSCv1v2.yaml` to `/<path to screendl repo>/data/datasets/CellModelPassports-GDSCv1v2`.
 
 #### Update PDX data file paths
 
