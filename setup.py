@@ -10,7 +10,7 @@ requirements = [
     "openpyxl == 3.1.2",
     "tensorflow == 2.11.1",
     "tensorflow-probability == 0.19.0",
-    "scikit-learn >= 1.3.0",
+    "scikit-learn == 1.3.0",
     "omegaconf >= 2.2, < 2.4",
     "tqdm",
     "rdkit",
