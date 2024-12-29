@@ -32,11 +32,16 @@ ScreenDL was developed using Python 3.9.13 and requires the following packages (
 - deepchem (== 2.7.1)
 - cdrpy
 - scipy (== 1.8.1)
-- inmoose (== 0.2.1)
 
 ## Additional Hardware & Software Requirements
 
+### Hardware
+
 All ScreenDL models were trained on GPU nodes provided by the Utah Center for High Performance Computing equipped with either NVIDIA GTX 1080 Ti GPUs with 3584 CUDA cores and 11 GB GDDR5X memory or NVIDIA A40 GPUs with 10,752 CUDA cores and 48 GB GDDR6 memory using cuda/11.3 and cudnn/8.2.0. *We note that ScreenDL can be trained using standard CPUs and does not require GPU hardware.*
+
+### Git Larege Files Storage (Git LFS)
+
+In order to download and extract the datasets packaged with the library, you will need [Git Large File Storage (Git LFS)](https://git-lfs.com/) installed. For install instructions, visit: [Installing Git Large File Storage](https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage)
 
 ## Installation
 
