@@ -55,7 +55,7 @@ def make_dataset(cfg: DictConfig) -> t.Tuple[cmp.CMPData, gdsc.GDSCData]:
     cmp_data, gdsc_data = harmonize_cmp_gdsc_data(cmp_data, gdsc_data)
 
     # log transform the TPM values
-    cmp_data.exp: pd.DataFrame = np.log2(cmp_data.exp + 1)
+    cmp_data.exp = np.log2(cmp_data.exp + 1)
 
     # query PubCHEM annotations
     pchem_ids = list(gdsc_data.meta["pubchem_id"])
@@ -105,9 +105,7 @@ def make_labels(cfg: DictConfig, resp_data: pd.DataFrame) -> pd.DataFrame:
     return resp_data_valid
 
 
-def make_splits(
-    cfg: DictConfig, resp_df: pd.DataFrame, cell_meta: pd.DataFrame
-) -> None:
+def make_splits(cfg: DictConfig, resp_df: pd.DataFrame, cell_meta: pd.DataFrame) -> None:
     """Generates the tumor blind train/test splits."""
     params = cfg.splits.params
 
