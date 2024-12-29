@@ -25,8 +25,8 @@ extras_require = {
         "click",
         "hydra-core >= 1.3",
         "hydra-optuna-sweeper >= 1.2.0",
-        "inmoose == 0.2.1",
-    ]
+    ],
+    "preprocess": ["inmoose == 0.2.1"],
 }
 
 with open("./test-requirements.txt") as test_reqs_txt:
