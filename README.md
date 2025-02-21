@@ -2,23 +2,23 @@
 
 ## Contents
 
-* [Requirements](#requirements)
-* [Additional Hardware & Software Requirements](#additional-hardware--software-requirements)
-* [Installation](#installation)
-* [Running ScreenDL](#running-screendl)
-    * [Data Preparation](#data-preparation)
-    * [Training and Evaluation](#training-and-evaluation)
-    * [Running with ScreenAhead](#running-with-screenahead)
-* [Benchmarking Experiments](#benchmarking-experiments)
-* [Running with IMPROVE](#running-with-improve)
-* [Citing ScreenDL](#citing-screendl)
-* [References](#references)
-    * [Models](#models)
-    * [Datasets](#datasets)
+- [Requirements](#requirements)
+- [Additional Hardware & Software Requirements](#additional-hardware--software-requirements)
+- [Installation](#installation)
+- [Running ScreenDL](#running-screendl)
+  - [Data Preparation](#data-preparation)
+  - [Training and Evaluation](#training-and-evaluation)
+  - [Running with ScreenAhead](#running-with-screenahead)
+- [Benchmarking Experiments](#benchmarking-experiments)
+- [Running with IMPROVE](#running-with-improve)
+- [Citing ScreenDL](#citing-screendl)
+- [References](#references)
+  - [Models](#models)
+  - [Datasets](#datasets)
 
 ## Requirements
 
-ScreenDL was developed using Python 3.9.13 and requires the following packages (see Installation):
+ScreenDL was developed using Python 3.9.13 on a Linux operating system and requires the following packages (see Installation):
 
 - numpy (>= 1.21)
 - pandas (>= 2.0.3)
@@ -35,13 +35,11 @@ ScreenDL was developed using Python 3.9.13 and requires the following packages (
 
 ## Additional Hardware & Software Requirements
 
+ScreenDL has been tested on Linux. We currently do not support Windows or MacOS. We recommend using a Linux-based system to run ScreenDL.
+
 ### Hardware
 
-All ScreenDL models were trained on GPU nodes provided by the Utah Center for High Performance Computing equipped with either NVIDIA GTX 1080 Ti GPUs with 3584 CUDA cores and 11 GB GDDR5X memory or NVIDIA A40 GPUs with 10,752 CUDA cores and 48 GB GDDR6 memory using cuda/11.3 and cudnn/8.2.0. *We note that ScreenDL can be trained using standard CPUs and does not require GPU hardware.*
-
-### Git Large Files Storage (Git LFS)
-
-In order to download and extract the datasets packaged with this library, you will need [Git Large File Storage (Git LFS)](https://git-lfs.com/) installed. For install instructions, visit: [Installing Git Large File Storage](https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage)
+All ScreenDL models were trained on GPU nodes provided by the Utah Center for High Performance Computing equipped with either NVIDIA GTX 1080 Ti GPUs with 3584 CUDA cores and 11 GB GDDR5X memory or NVIDIA A40 GPUs with 10,752 CUDA cores and 48 GB GDDR6 memory using cuda/11.3 and cudnn/8.2.0. _We note that ScreenDL can be trained using standard CPUs and does not require GPU hardware._
 
 ## Installation
 
@@ -82,27 +80,19 @@ ScreenDL uses [Hydra](https://hydra.cc/) for config management. Before running S
 
 ### Data Preparation
 
-All datasets used to train and evaluate ScreenDL can be found as `tar.gz` archives under the `data/datasets` directory. To prepare the data for training ScreenDL, enter the `data/datasets` directory (`cd data/datasets`) and unpack that `tar.gz` archives with the following commands:
+All datasets used to train and evaluate ScreenDL can be obtained by downloading the `screendl-data.zip` file from our Zenodo repository: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14906585.svg)](https://doi.org/10.5281/zenodo.14906585). After downloading the `screendl-data.zip` file, extract the `datasets` and `pdx` subdirectories and move them into the `data` directory in the root of the `screendl` repository following the steps below.
 
 ```{bash}
-cd data/datasets
-mkdir <dataset name>
-tar -xvzf <path to dataset archive> -C <dataset name>
-```
-
-For example, to unpack the CellModelPassports-GDSCv1v2 dataset, run:
-
-```{bash}
-cd data/datasets
-mkdir CellModelPassports-GDSCv1v2
-tar -xvzf CellModelPassports-GDSCv1v2.tar.gz -C CellModelPassports-GDSCv1v2
+unzip /path/to/screendl-data.zip
+cp -r /path/to/screendl-data/datasets /path/to/screendl/repo/data/
+cp -r /path/to/screendl-data/pdx /path/to/screendl/repo/data/
 ```
 
 ### Configuring ScreenDL
 
 ScreenDL's inputs and hyperparameters are configured using [Hydra](https://hydra.cc/). Config files for all scripts can be found under the `conf` subdirectory. **ScreenDL's default configuration assumes that datasets have been extracted into the `data/datasets` directory by following the steps outlined in Data Preparation above.** If you have extracted the data according to the procedure outlined above, no additional configuration is required and you may skip this section and procede directly to Training and Evaluation.
 
-ScreenDL can also be manually configured by updating the necessary file paths. In what follows, we outline the required manual config file updates for basic ScreenDL functionality using the CellModelPassports-GDSCv1v2 dataset as an example. *Note that in order to run sweeps (multiruns) using Hydra with the default config files packaged with ScreenDL, you will need to include the additional command line arguement* `_datastore_="$(pwd)/data"` *as documented in the example commands in later sections.*
+ScreenDL can also be manually configured by updating the necessary file paths. In what follows, we outline the required manual config file updates for basic ScreenDL functionality using the CellModelPassports-GDSCv1v2 dataset as an example. _Note that in order to run sweeps (multiruns) using Hydra with the default config files packaged with ScreenDL, you will need to include the additional command line arguement_ `_datastore_="$(pwd)/data"` _as documented in the example commands in later sections._
 
 #### Update the file paths in a given script's config file
 
@@ -115,7 +105,7 @@ ScreenDL can also be manually configured by updating the necessary file paths. I
 
 - We use Hydra's nested config system to manage the configuration of multiple datasets simultaneously.
 - In order for ScreenDL to read a given dataset (i.e., CellModelPassports-GDSCv1v2), the config field `dataset.dir` must point to the location of the corresponding extracted `tar.gz` archive.
-- *Note that we recommend using expanded file paths when updating config files.*
+- _Note that we recommend using expanded file paths when updating config files._
 - For example, for CellModelPassports-GDSCv1v2, set the `dir` field under `conf/runners/dataset/CellModelPassports-GDSCv1v2.yaml` to point to the root directory of the extracted dataset.
 - For example, if you extracted the CellModelPassports-GDSCv1v2 dataset to `/<path to screendl repo>/screendl/data/datasets/CellModelPassports-GDSCv1v2` set the `dir` field in `conf/runners/dataset/CellModelPassports-GDSCv1v2.yaml` to `/<path to screendl repo>/data/datasets/CellModelPassports-GDSCv1v2`.
 - **This step tells ScreenDL where input data is stored.**
@@ -143,7 +133,7 @@ python scripts/runners/run.py -m _datastore_="$(pwd)/data"
 
 ### Running with ScreenAhead
 
-To train and evaluate ScreenDL with ***ScreenAhead tumor-specific fine-tuning***, run:
+To train and evaluate ScreenDL with **_ScreenAhead tumor-specific fine-tuning_**, run:
 
 ```{bash}
 python scripts/runners/run_screenahead.py
@@ -155,9 +145,9 @@ This script will generate several output files under the directories configured 
 
 1. `predictions.csv`: The raw predictions generated by ScreenDL for each tumor-drug pair. This file is used as input for subsequent analyses.
 1. `predictions_sa.csv`: The raw predictions generated by ScreenDL-SA (ScreenDL with tumor-specific fine-tuning) for each tumor-drug pair. This file is used as input for subsequent analyses.
-2. `scores.json`: The train/validation/test metrics for the ScreenDL model.
+1. `scores.json`: The train/validation/test metrics for the ScreenDL model.
 
-To train and evaluate ScreenDL with ***ScreenAhead tumor-specific fine-tuning*** on all train/val/test folds, run:
+To train and evaluate ScreenDL with **_ScreenAhead tumor-specific fine-tuning_** on all train/val/test folds, run:
 
 ```{bash}
 python scripts/runners/run_screenahead.py -m _datastore_="$(pwd)/data"
@@ -334,4 +324,3 @@ For more information on DeepCDR, checkout the original publication: [DeepCDR: a 
 [3]: Jin, I. & Nam, H. HiDRA: Hierarchical Network for Drug Response Prediction with Attention. J. Chem. Inf. Model. 61, 3858–3867 (2021). [https://doi.org/10.1021/acs.jcim.1c00706](https://doi.org/10.1021/acs.jcim.1c00706)
 
 ### Datasets
-
