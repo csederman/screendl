@@ -19,10 +19,6 @@ import tensorflow as tf
 import tensorflow.keras.backend as K  # pyright: ignore[reportMissingImports]
 import typing as t
 
-np.random.seed(1771)
-random.seed(1771)
-tf.random.set_seed(1771)
-
 from omegaconf import DictConfig
 from cdrpy.mapper import BatchedResponseGenerator
 from cdrpy.datasets import Dataset
@@ -38,46 +34,6 @@ log = logging.getLogger(__name__)
 PIPELINES = {"ScreenDL": "screendl"}
 
 
-# def generate_all_predictions(
-#     cfg: DictConfig,
-#     model: keras.Model,
-#     datasets: t.Iterable[Dataset],
-#     cell_id: str,
-# ) -> pd.DataFrame:
-#     """Generate predictions for all observations."""
-#     pred_dfs = []
-#     for ds in datasets:
-#         gen = BatchedResponseGenerator(ds, cfg.model.hyper.batch_size)
-#         seq = gen.flow_from_dataset(ds)
-#         preds: np.ndarray = model.predict(seq, verbose=0)
-#         pred_dfs.append(
-#             # make_pred_df(
-#             #     ds,
-#             #     preds,
-#             #     split_group="test",
-#             #     model="ScreenDL-SA",
-#             #     split_id=cfg.dataset.split.id,
-#             #     split_type=cfg.dataset.split.name,
-#             #     norm_method=cfg.dataset.preprocess.norm,
-#             # )
-#             pd.DataFrame(
-#                 {
-#                     "cell_id": ds.cell_ids,
-#                     "drug_id": ds.drug_ids,
-#                     "y_true": ds.labels,
-#                     "y_pred": preds.reshape(-1),
-#                     "split": ds.name,
-#                 }
-#             )
-#         )
-
-#     pred_df = pd.concat(pred_dfs)
-#     pred_df["fold"] = cfg.dataset.split.id
-#     pred_df["sa_fold"] = cell_id
-
-#     return pred_df
-
-
 @hydra.main(
     version_base=None,
     config_path="../../conf/runners",
@@ -85,6 +41,10 @@ PIPELINES = {"ScreenDL": "screendl"}
 )
 def run_sa(cfg: DictConfig) -> float:
     """"""
+    np.random.seed(cfg.seed)
+    random.seed(cfg.seed)
+    tf.random.set_seed(cfg.seed)
+
     # What I should do here is just use importlib
     if not cfg.model.name in PIPELINES:
         raise ValueError("Unsupported model.")
@@ -107,9 +67,16 @@ def run_sa(cfg: DictConfig) -> float:
 
     base_weights = base_model.get_weights()
 
+    if cfg.screenahead.io.permute_exp:
+        # randomly scramble the gene expression data
+        test_ds.cell_encoders["exp"].data = test_ds.cell_encoders["exp"].data.apply(
+            np.random.permutation
+        )
+
     pred_dfs = []
     for cell_id in set(test_ds.cell_ids):
         cell_ds: Dataset = test_ds.select_cells([cell_id])
+        cell_gen = BatchedResponseGenerator(cell_ds, batch_size=cell_ds.n_drugs)
         choices = set(cell_ds.drug_ids)
 
         # require at least 1 drug in the holdout set
@@ -124,8 +91,6 @@ def run_sa(cfg: DictConfig) -> float:
         )
         screen_drugs = selector.select(opts.n_drugs, choices=choices)
         screen_ds = cell_ds.select_drugs(screen_drugs)
-        holdout_ds = cell_ds.select_drugs(choices.difference(screen_drugs))
-        holdout_seq = test_gen.flow_from_dataset(holdout_ds)
 
         sa_model = model_utils.fit_screenahead_model(
             base_model,
@@ -137,17 +102,17 @@ def run_sa(cfg: DictConfig) -> float:
             training=False,
         )
 
-        preds = sa_model.predict(holdout_seq, verbose=0)
+        pred_df = eval_utils.make_pred_df(
+            cell_ds,
+            sa_model.predict(cell_gen.flow_from_dataset(cell_ds), verbose=0),
+            split_group="test",
+            model="ScreenDL-SA",
+            split_id=cfg.dataset.split.id,
+            split_type=cfg.dataset.split.name,
+            norm_method=cfg.dataset.preprocess.norm,
+        )
         pred_dfs.append(
-            eval_utils.make_pred_df(
-                holdout_ds,
-                preds,
-                split_group="test",
-                model="ScreenDL-SA",
-                split_id=cfg.dataset.split.id,
-                split_type=cfg.dataset.split.name,
-                norm_method=cfg.dataset.preprocess.norm,
-            )
+            pred_df.assign(was_screened=lambda df: df["drug_id"].isin(screen_drugs))
         )
 
         # restore the weights before each iteration
