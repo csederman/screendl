@@ -90,35 +90,6 @@ def get_eval_metrics(pred_df: pd.DataFrame, key: ScoreKey = "loss") -> ScoreDict
     return {"key": key, "value": metrics[key], **metrics}
 
 
-# def get_preds_vs_background(
-#     M: keras.Model,
-#     target_ds: Dataset,
-#     background_ds: Dataset,
-#     batch_size: int = 256,
-#     grouped: bool = True,
-#     **kwargs,
-# ) -> pd.DataFrame:
-#     """Computes z-score predictions against a background distribution."""
-#     t_gen = BatchedResponseGenerator(target_ds, batch_size)
-#     t_preds = M.predict(t_gen.flow_from_dataset(target_ds), verbose=0)
-#     t_pred_df = make_pred_df(target_ds, t_preds, **dict(kwargs, _bg=False))
-
-#     b_gen = BatchedResponseGenerator(background_ds, batch_size)
-#     b_preds = M.predict(b_gen.flow_from_dataset(background_ds), verbose=0)
-#     b_pred_df = make_pred_df(background_ds, b_preds, **dict(kwargs, _bg=True))
-
-#     pred_df = pd.concat([t_pred_df, b_pred_df])
-
-#     if grouped:
-#         pred_df["y_pred"] = pred_df.groupby("drug_id")["y_pred"].transform(stats.zscore)
-#     else:
-#         pred_df["y_pred"] = stats.zscore(pred_df["y_pred"])
-
-#     pred_df = pred_df[pred_df["_bg"] == False].drop(columns="_bg")
-
-#     return pred_df
-
-
 def get_preds_vs_background(
     M: keras.Model,
     D_target: Dataset,
@@ -129,6 +100,8 @@ def get_preds_vs_background(
     **kwargs,
 ) -> pd.DataFrame:
     """Computes z-score predictions against a background distribution."""
+    # NOTE: deprecated, use `get_predictions_vs_background` instead
+
     tgt_gen = BatchedResponseGenerator(D_target, batch_size)
     tgt_seq = tgt_gen.flow_from_dataset(D_target)
     tgt_preds = M.predict(tgt_seq, verbose=0)
@@ -173,3 +146,76 @@ def get_preds(
     preds = M.predict(seq, verbose=0)
 
     return make_pred_df(D, preds, **kwargs)
+
+
+def _predict_internal(M: keras.Model, D: Dataset, batch_size: bool = 256) -> np.ndarray:
+    """"""
+    gen = BatchedResponseGenerator(D, batch_size)
+    return M.predict(gen.flow_from_dataset(D), verbose=0)
+
+
+def _normalize_to_background_global(
+    t_preds: pd.DataFrame,
+    b_preds: pd.DataFrame,
+    y_var: str = "y_pred",
+) -> t.Tuple[pd.DataFrame, pd.DataFrame]:
+    """"""
+    scaler = StandardScaler().fit(b_preds[[y_var]])
+    t_preds[y_var] = scaler.transform(t_preds[[y_var]])
+    b_preds[y_var] = scaler.transform(b_preds[[y_var]])
+
+    return t_preds, b_preds
+
+
+def _normalize_to_background_grouped(
+    t_preds: pd.DataFrame,
+    b_preds: pd.DataFrame,
+    y_var: str = "y_pred",
+    group_var: str = "drug_id",
+) -> t.Tuple[pd.DataFrame, pd.DataFrame]:
+    """"""
+    scaler = GroupStandardScaler().fit(b_preds[[y_var]], groups=b_preds[group_var])
+    t_preds[y_var] = scaler.transform(t_preds[[y_var]], groups=t_preds[group_var])
+    b_preds[y_var] = scaler.transform(b_preds[[y_var]], groups=b_preds[group_var])
+    return t_preds, b_preds
+
+
+def get_predictions_vs_background(
+    M: keras.Model,
+    D_t: Dataset,
+    D_b: Dataset,
+    W_t: t.Any = None,
+    W_b: t.Any = None,
+    batch_size: int = 256,
+    grouped: bool = True,
+    return_all: bool = False,
+    **kwargs,
+) -> pd.DataFrame:
+    """Computes z-score predictions against a background distribution."""
+    W_0 = M.get_weights()
+
+    W_t = W_0 if W_t is None else W_t
+    W_b = W_0 if W_b is None else W_b
+
+    M.set_weights(W_t)
+    t_preds = _predict_internal(M, D_t, batch_size)
+    t_preds = make_pred_df(D_t, t_preds, **kwargs)
+
+    M.set_weights(W_b)
+    b_preds = _predict_internal(M, D_b, batch_size)
+    b_preds = make_pred_df(D_b, b_preds, **kwargs)
+
+    # restore initial weights
+    M.set_weights(W_0)
+
+    norm_func = (
+        _normalize_to_background_grouped if grouped else _normalize_to_background_global
+    )
+    t_preds, b_preds = norm_func(t_preds, b_preds)
+
+    if return_all:
+        b_preds = b_preds.assign(partition="bkg")
+        t_preds = t_preds.assign(partition="tgt")
+        return pd.concat([t_preds, b_preds]).reset_index(drop=True)
+
+    return t_preds
