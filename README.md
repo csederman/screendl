@@ -84,8 +84,8 @@ All datasets used to train and evaluate ScreenDL can be obtained by downloading 
 
 ```{bash}
 unzip /path/to/screendl-data.zip
-cp -r /path/to/screendl-data/datasets /path/to/screendl/repo/data/
-cp -r /path/to/screendl-data/pdx /path/to/screendl/repo/data/
+cp -r /path/to/screendl-data/datasets /path/to/screendl/data/
+cp -r /path/to/screendl-data/pdx /path/to/screendl/data/
 ```
 
 ### Configuring ScreenDL
