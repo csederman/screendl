@@ -1,0 +1,31 @@
+defaults:
+  - _self_
+  - dataset: CellModelPassports-GDSCv1v2.local
+  - model: ScreenDL # we use the same input features as ScreenDL
+
+_datastore_: ${hydra:runtime.cwd}/data
+_experiment_: ${_datastore_}/outputs/experiments/baselines
+
+hydra:
+  run:
+    dir: ${_experiment_}/${dataset.name}/runs/${now:%Y-%m-%d}_${now:%H-%M-%S}
+  job:
+    chdir: true
+  sweep:
+    dir: ${_experiment_}/${dataset.name}/multiruns/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    subdir: ${hydra:job.num}
+  sweeper:
+    params:
+      baseline.estimator: ridge,forest
+      dataset.split.id: 1,2,3,4,5,6,7,8,9,10
+
+baseline:
+  estimator: ridge
+  n_jobs: 10
+  seed: 1771
+
+experiment:
+  reduce_tumor_features: false
+  reduce_drug_features: false
+  num_tumor_features: 20
+  num_drug_features: 20
