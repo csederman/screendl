@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Runs transfer learning experiments on the HCI PDMC dataset."""
+"""Runs pdxo validation with and without intermediate domain-specific fine-tuning."""
 
 from __future__ import annotations
 
@@ -32,6 +32,7 @@ from screendl.pipelines.basic.screendl import (
 from screendl.utils.drug_selectors import SELECTORS, DrugSelectorType
 from screendl.utils import evaluation as eval_utils
 from screendl.utils import model_utils
+from screendl.utils import data_utils
 
 if t.TYPE_CHECKING:
     from omegaconf import DictConfig
@@ -187,8 +188,15 @@ def data_preprocessor(
     return train_cell_ds, val_cell_ds, pdmc_ds
 
 
+def safe_lconfig_as_tuple(item: t.Any) -> t.Any:
+    """Converts ListConfig instances to tuples or does nothing."""
+    return tuple(item) if isinstance(item, ListConfig) else item
+
+
 @hydra.main(
-    version_base=None, config_path="../../conf/runners", config_name="pdxo_validation"
+    version_base=None,
+    config_path="../../conf/runners",
+    config_name="pdxo_validation",
 )
 def run(cfg: DictConfig) -> None:
     """Runs leave-one-out cross validation for the HCI PDMC dataset.
@@ -203,134 +211,149 @@ def run(cfg: DictConfig) -> None:
 
     log.info(f"Loading {dataset_name}...")
     dataset = data_loader(cfg)
+    all_drug_ids = list(dataset.drug_encoders["mol"].keys())
 
     log.info(f"Splitting {dataset_name}...")
-    train_cell_ds, val_cell_ds, pdmc_ds = data_splitter(cfg, dataset)
+    D_t_cell, D_v_cell, D_pdxo = data_splitter(cfg, dataset)
 
     log.info(f"Preprocessing {dataset_name}...")
-    train_cell_ds, val_cell_ds, pdmc_ds = data_preprocessor(
-        cfg, train_cell_ds, val_cell_ds, pdmc_ds
-    )
-
-    print(pdmc_ds)
+    D_t_cell, D_v_cell, D_pdxo = data_preprocessor(cfg, D_t_cell, D_v_cell, D_pdxo)
 
     log.info(f"Building {model_name}...")
-    base_model = base_model_builder(cfg, train_cell_ds)
+    M_base = base_model_builder(cfg, D_t_cell)
 
     log.info(f"Pretraining {model_name}...")
-    base_model = base_model_trainer(cfg, base_model, train_cell_ds, val_cell_ds)
-    base_result = eval_utils.get_preds_vs_background(
-        base_model, pdmc_ds, pdmc_ds, model="base", was_screened=False
-    )
+    M_base = base_model_trainer(cfg, M_base, D_t_cell, D_v_cell)
 
     log.info("Running experiment...")
-
     hp_tune = cfg.xfer.hyper
     hp_screen = cfg.screenahead.hyper
     opt_screen = cfg.screenahead.opt
 
-    split_gen = loo_split_generator(pdmc_ds)
-    base_weights = base_model.get_weights()
-
-    selector = SELECTORS[opt_screen.selector](
-        dataset.select_cells(set(train_cell_ds.cell_ids).union(val_cell_ds.cell_ids)),
-        seed=opt_screen.seed,
-        na_threshold=0.8,
-    )
+    W_base = M_base.get_weights()
+    split_gen = loo_split_generator(D_pdxo)
 
     results = []
-    for train_ds, test_ds in tqdm(split_gen, total=pdmc_ds.n_cells):
-        screen_ds, _ = get_screenahead_split(
-            test_ds,
-            selector,
-            opt_screen.n_drugs,
+    for D_t_pdxo, D_e_pdxo in tqdm(split_gen, total=D_pdxo.n_cells):
+        # create background dataset against which we normalize the predictions
+        D_bg_pdxo_full = data_utils.expand_dataset(
+            D_t_pdxo,
+            cell_ids=list(set(D_t_pdxo.cell_ids)),
+            drug_ids=all_drug_ids,
+        )
+
+        # create the evaluation dataset (all drugs for the tumor of interest)
+        D_e_pdxo_full = data_utils.expand_dataset(
+            D_e_pdxo,
+            cell_ids=[D_e_pdxo.cell_ids[0]],
+            drug_ids=all_drug_ids,
+        )
+
+        results.append(
+            eval_utils.get_predictions_vs_background(
+                M=M_base,
+                D_t=D_e_pdxo_full,
+                D_b=D_bg_pdxo_full,
+                W_t=None,
+                W_b=None,
+                model="base",
+                was_screened=False,
+            )
+        )
+
+        # initialize the drug selector
+        drug_selector = SELECTORS[opt_screen.selector](
+            dataset.select_cells(D_t_pdxo.cell_ids).select_drugs(D_pdxo.drug_ids),
+            na_threshold=opt_screen.na_thresh,
+            seed=opt_screen.seed,
+        )
+
+        D_s_pdxo, _ = get_screenahead_split(
+            D_e_pdxo,
+            drug_selector=drug_selector,
+            num_drugs=opt_screen.n_drugs,
             exclude_drugs=opt_screen.exclude_drugs,
         )
 
-        # 1. run screenahead without initial fine-tuning
-        sa_model = model_utils.fit_screenahead_model(
-            base_model,
-            screen_ds,
+        M_screen_0 = model_utils.fit_screenahead_model(
+            M_base,
+            D_s_pdxo,
             batch_size=hp_screen.batch_size,
             epochs=hp_screen.epochs,
             learning_rate=hp_screen.learning_rate,
-            frozen_layer_prefixes=(
-                tuple(hp_screen.frozen_layer_prefixes)
-                if isinstance(hp_screen.frozen_layer_prefixes, ListConfig)
-                else hp_screen.frozen_layer_prefixes
+            frozen_layer_prefixes=safe_lconfig_as_tuple(
+                hp_screen.frozen_layer_prefixes
             ),
-            frozen_layer_names=(
-                tuple(hp_screen.frozen_layer_names)
-                if isinstance(hp_screen.frozen_layer_names, ListConfig)
-                else hp_screen.frozen_layer_names
-            ),
+            frozen_layer_names=safe_lconfig_as_tuple(hp_screen.frozen_layer_names),
             training=False,
         )
 
-        sa_result = eval_utils.get_preds_vs_background(
-            sa_model, test_ds, train_ds, model="screen (no-fine-tune)"
+        W_screen_0 = M_screen_0.get_weights()
+        R_screen_0 = eval_utils.get_predictions_vs_background(
+            M=M_screen_0,
+            D_t=D_e_pdxo_full,
+            D_b=D_bg_pdxo_full,
+            W_t=W_screen_0 if cfg.experiment.background_correction else None,
+            W_b=W_base if cfg.experiment.background_correction else None,
+            model="screen (no-fine-tune)",
         )
-        sa_result["was_screened"] = sa_result["drug_id"].isin(screen_ds.drug_ids)
-        results.append(sa_result)
+        R_screen_0["was_screened"] = R_screen_0["drug_id"].isin(D_s_pdxo.drug_ids)
+        results.append(R_screen_0)
 
-        # 2. run the normal fine-tune + ScreenAhead stuff
-        base_model.set_weights(base_weights)
-
-        tune_model = model_utils.fit_transfer_model(
-            base_model,
-            train_ds,
+        M_base.set_weights(W_base)
+        M_tune = model_utils.fit_transfer_model(
+            M_base,
+            D_t_pdxo,
             batch_size=hp_tune.batch_size,
             epochs=hp_tune.epochs,
             learning_rate=hp_tune.learning_rate,
             weight_decay=hp_tune.weight_decay,
-            frozen_layer_prefixes=(
-                tuple(hp_tune.frozen_layer_prefixes)
-                if isinstance(hp_tune.frozen_layer_prefixes, ListConfig)
-                else hp_tune.frozen_layer_prefixes
-            ),
-            frozen_layer_names=(
-                tuple(hp_tune.frozen_layer_names)
-                if isinstance(hp_tune.frozen_layer_names, ListConfig)
-                else hp_tune.frozen_layer_names
-            ),
+            frozen_layer_prefixes=safe_lconfig_as_tuple(hp_tune.frozen_layer_prefixes),
+            frozen_layer_names=safe_lconfig_as_tuple(hp_tune.frozen_layer_names),
         )
 
+        W_tune = M_tune.get_weights()
         results.append(
-            eval_utils.get_preds_vs_background(
-                tune_model, test_ds, train_ds, model="xfer", was_screened=False
+            eval_utils.get_predictions_vs_background(
+                M=M_tune,
+                D_t=D_e_pdxo_full,
+                D_b=D_bg_pdxo_full,
+                W_t=None,
+                W_b=None,
+                model="xfer",
+                was_screened=False,
             )
         )
 
-        sa_model = model_utils.fit_screenahead_model(
-            tune_model,
-            screen_ds,
+        M_screen = model_utils.fit_screenahead_model(
+            M_tune,
+            D_s_pdxo,
             batch_size=hp_screen.batch_size,
             epochs=hp_screen.epochs,
             learning_rate=hp_screen.learning_rate,
-            frozen_layer_prefixes=(
-                tuple(hp_screen.frozen_layer_prefixes)
-                if isinstance(hp_screen.frozen_layer_prefixes, ListConfig)
-                else hp_screen.frozen_layer_prefixes
+            frozen_layer_prefixes=safe_lconfig_as_tuple(
+                hp_screen.frozen_layer_prefixes
             ),
-            frozen_layer_names=(
-                tuple(hp_screen.frozen_layer_names)
-                if isinstance(hp_screen.frozen_layer_names, ListConfig)
-                else hp_screen.frozen_layer_names
-            ),
+            frozen_layer_names=safe_lconfig_as_tuple(hp_screen.frozen_layer_names),
             training=False,
         )
 
-        sa_result = eval_utils.get_preds_vs_background(
-            sa_model, test_ds, train_ds, model="screen (fine-tune)"
+        W_screen = M_screen.get_weights()
+        R_screen = eval_utils.get_predictions_vs_background(
+            M=M_screen,
+            D_t=D_e_pdxo_full,
+            D_b=D_bg_pdxo_full,
+            W_t=W_screen if cfg.experiment.background_correction else None,
+            W_b=W_tune if cfg.experiment.background_correction else None,
+            model="screen (fine-tune)",
         )
-        sa_result["was_screened"] = sa_result["drug_id"].isin(screen_ds.drug_ids)
+        R_screen["was_screened"] = R_screen["drug_id"].isin(D_s_pdxo.drug_ids)
+        results.append(R_screen)
 
-        results.append(sa_result)
+        M_base.set_weights(W_base)
 
-        base_model.set_weights(base_weights)
-
-    results = pd.concat([base_result, *results])
-    results.to_csv("predictions.csv", index=False)
+    results_df = pd.concat(results)
+    results_df.to_csv("predictions.csv", index=False)
 
 
 if __name__ == "__main__":
