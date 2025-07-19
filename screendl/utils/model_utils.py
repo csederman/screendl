@@ -199,6 +199,7 @@ def fit_screenahead_model(
     epochs: int = 20,
     learning_rate: float = 1e-4,
     weight_decay: float | None = None,
+    callbacks: t.List[t.Any] | None = None,
     **kwargs,
 ) -> keras.Model:
     """Trains the model using ScreenAhead.
@@ -232,6 +233,6 @@ def fit_screenahead_model(
     optim = keras.optimizers.Adam(learning_rate, weight_decay=weight_decay)
     model = configure_screenahead_model(base_model, optim, **kwargs)
 
-    _ = model.fit(batch_seq, epochs=epochs, verbose=0)
+    _ = model.fit(batch_seq, epochs=epochs, verbose=0, callbacks=callbacks)
 
     return model
