@@ -31,6 +31,7 @@ from cdrpy.util.io import read_pickled_dict
 from cdrpy.mapper import BatchedResponseGenerator
 
 from screendl.utils.evaluation import make_pred_df, get_eval_metrics, ScoreDict
+from screendl.utils import data_utils
 
 
 log = logging.getLogger(__name__)
@@ -176,9 +177,7 @@ def data_preprocessor(
     return train_dataset, val_dataset, test_dataset
 
 
-def model_builder(
-    cfg: DictConfig, geneset_dict: t.Dict[str, t.List[str]]
-) -> keras.Model:
+def model_builder(cfg: DictConfig, geneset_dict: t.Dict[str, t.List[str]]) -> keras.Model:
     """Builds the HiDRA model.
 
     Parameters
@@ -308,9 +307,7 @@ def run_pipeline(
     train_ds, val_ds, test_ds = data_splitter(cfg, ds)
 
     log.info(f"Preprocessing {dataset_name}...")
-    train_ds, val_ds, test_ds = data_preprocessor(
-        cfg, gs_dict, train_ds, val_ds, test_ds
-    )
+    train_ds, val_ds, test_ds = data_preprocessor(cfg, gs_dict, train_ds, val_ds, test_ds)
 
     log.info(f"Building {model_name}...")
     model = model_builder(cfg, gs_dict)
@@ -352,6 +349,43 @@ def run_pdx_pipeline(
 
     param_dict = {"model": "HiDRA"}
     pdx_pred_df = make_pred_df(pdx_ds, pdx_preds, **param_dict)
+    pdx_pred_df.to_csv("predictions_pdx.csv", index=False)
+
+    return model, scores, ds_dict
+
+
+def run_pdx_pipeline_v2(
+    cfg: DictConfig,
+) -> t.Tuple[keras.Model, t.Dict[str, ScoreDict], t.Dict[str, Dataset]]:
+    """"""
+    model, scores, ds_dict = run_pipeline(cfg)
+
+    all_drug_ids = list(set(ds_dict["full"].drug_ids))
+    all_pdmc_ids = list(set(ds_dict["test"].cell_ids))
+
+    pdmc_ds = ds_dict["test"]
+
+    pdx_obs = pd.read_csv(cfg.pdx_path)
+    pdx_obs = pdx_obs[pdx_obs["cell_id"].isin(pdmc_ds.cell_ids)]
+    pdx_obs = pdx_obs[pdx_obs["drug_id"].isin(pdmc_ds.drug_ids)]
+    pdx_obs["label"] = pdx_obs["mRECIST"].isin(["CR", "PR", "SD"]).astype(int)
+
+    pdx_ds = Dataset(
+        pdx_obs,
+        cell_encoders=pdmc_ds.cell_encoders,
+        drug_encoders=pdmc_ds.drug_encoders,
+        name="pdx_ds",
+    )
+
+    # Expand to all tumor-drug combinations
+    pdx_ds_full = data_utils.expand_dataset(pdx_ds, all_pdmc_ids, all_drug_ids)
+
+    pdx_gen = BatchedResponseGenerator(pdx_ds_full, 256)
+    pdx_seq = pdx_gen.flow_from_dataset(pdx_ds_full)
+    pdx_preds: np.ndarray = model.predict(pdx_seq)
+
+    param_dict = {"model": "HiDRA"}
+    pdx_pred_df = make_pred_df(pdx_ds_full, pdx_preds, **param_dict)
     pdx_pred_df.to_csv("predictions_pdx.csv", index=False)
 
     return model, scores, ds_dict

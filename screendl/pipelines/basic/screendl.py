@@ -143,20 +143,6 @@ def data_preprocessor(
         norm_method=cfg.dataset.preprocess.norm,
     )
 
-    if cfg.model.feat.use_mr:
-        train_mr = (
-            train_dataset.obs.groupby("cell_id")["label"].mean().to_frame(name="value")
-        )
-        train_mr[:] = StandardScaler().fit_transform(train_mr)
-
-        val_cell_ids = list(set(val_dataset.cell_ids))
-        test_cell_ids = list(set(test_dataset.cell_ids))
-        val_mr = pd.DataFrame({"value": 0}, index=val_cell_ids)
-        test_mr = pd.DataFrame({"value": 0}, index=test_cell_ids)
-
-        mr_data = pd.concat([train_mr, val_mr, test_mr])
-        train_dataset.cell_encoders["mr"] = PandasEncoder(mr_data, name="mr")
-
     # val_dataset.cell_encoders = train_dataset.cell_encoders
     # test_dataset.cell_encoders = train_dataset.cell_encoders
 
@@ -205,7 +191,7 @@ def model_builder(cfg: DictConfig, train_dataset: Dataset) -> keras.Model:
         ont_hidden_dims=params.hyper.hidden_dims.ont,
         mol_hidden_dims=params.hyper.hidden_dims.mol,
         shared_hidden_dims=params.hyper.hidden_dims.shared,
-        use_mr=params.feat.use_mr,
+        use_mr=False,
         use_noise=params.hyper.use_noise,
         use_batch_norm=params.hyper.use_batch_norm,
         use_dropout=params.hyper.use_dropout,
