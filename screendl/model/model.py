@@ -1,6 +1,4 @@
-"""
-
-"""
+""" """
 
 from __future__ import annotations
 
@@ -178,14 +176,6 @@ def _create_copy_number_subnetwork(
         x = mlp_block(x)
 
     return Model(inputs=input_layer, outputs=x, name="cnv_subnet")
-
-
-def _create_mean_response_subnetwork(dim: int = 1) -> keras.Model:
-    """"""
-    x = input_layer = layers.Input((dim,), name="mr_input")
-    x = layers.Lambda(lambda x: x, name="mr_identity")(x)
-
-    return Model(inputs=input_layer, outputs=x, name="mr_subnet")
 
 
 def _create_cell_subnetwork(
@@ -420,10 +410,6 @@ def create_model(
 
     x = layers.Concatenate(name="concat")(subnet_outputs)
 
-    if mr_index < 0:
-        # convert to real index
-        mr_index += len(shared_hidden_dims)
-
     for i, units in enumerate(shared_hidden_dims, 1):
         mlp_block = make_mlp_block(
             units,
@@ -436,11 +422,6 @@ def create_model(
             name=f"shared_mlp_{i}",
         )
         x = mlp_block(x)
-
-        if use_mr and i == mr_index + 1:
-            mr_subnet = _create_mean_response_subnetwork(1)
-            subnet_inputs.insert(-1, mr_subnet.input)
-            x = layers.Concatenate(name="mr_concat")([x, mr_subnet.output])
 
     output = layers.Dense(1, "linear", name="final_act")(x)
 

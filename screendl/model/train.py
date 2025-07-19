@@ -107,7 +107,7 @@ def train_model(
     )
 
     if save_dir is not None:
-        model.save(os.path.join(save_dir, "model"))
-        model.save_weights(os.path.join(save_dir, "weights"))
+        model.save(os.path.join(save_dir, "ScreenDL-PT.model"))
+        model.save_weights(os.path.join(save_dir, "ScreenDL-PT.weights"))
 
     return model
