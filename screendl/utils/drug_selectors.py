@@ -35,10 +35,13 @@ __all__ = [
     "KMeansDrugSelector",
     "AgglomerativeDrugSelector",
     "PrincipalDrugSelector",
+    "PrincipalDrugSelectorV2",
     "MeanResponseSelector",
     "UniformDrugSelector",
-    "DOptimalDrugSelector",
+    # "DOptimalDrugSelector",
     "DrugSelectorType",
+    "SELECTORS",
+    "get_response_matrix",
 ]
 
 
@@ -59,7 +62,7 @@ def get_response_matrix(
         M = M.dropna(thresh=np.floor(na_threshold * M.shape[0]), axis=1)
 
     if impute:
-        M[:] = KNNImputer(n_neighbors=n_neighbors).fit_transform(M)
+        M[:] = KNNImputer(n_neighbors=n_neighbors, weights="distance").fit_transform(M)
 
     return M.T
 
@@ -93,12 +96,10 @@ class RandomDrugSelector(DrugSelectorBase):
         seed: Seed = None,
         name: str | None = None,
     ) -> None:
-        self.dataset = D
+        self.D = D
         self.na_threshold = na_threshold
         self.name = name
-        self.response_mat = get_response_matrix(
-            self.dataset, impute=True, na_threshold=self.na_threshold
-        )
+        self.rmat = get_response_matrix(self.D, na_threshold=self.na_threshold)
         self._rs, _ = _seeded_state(seed)
 
     def select(
@@ -117,7 +118,7 @@ class RandomDrugSelector(DrugSelectorBase):
         -------
             A list of selected drugs.
         """
-        M = self.response_mat
+        M = self.rmat
         if choices is not None:
             M = M[M.index.isin(choices)]
 
@@ -141,12 +142,10 @@ class UniformDrugSelector(DrugSelectorBase):
     ) -> None:
         if D.drug_meta is None:
             raise ValueError("drug selector requires drug metadata")
-        self.dataset = D
+        self.D = D
         self.na_threshold = na_threshold
         self.name = name
-        self.response_mat = get_response_matrix(
-            self.dataset, impute=True, na_threshold=self.na_threshold
-        )
+        self.rmat = get_response_matrix(self.D, na_threshold=self.na_threshold)
         self._rs, _ = _seeded_state(seed)
 
     def select(
@@ -156,10 +155,10 @@ class UniformDrugSelector(DrugSelectorBase):
         field: str = "target_pathway",
     ) -> t.List[str]:
         """Uniformly sample drugs along metadata groupings."""
-        if not field in self.dataset.drug_meta.columns:
+        if not field in self.D.drug_meta.columns:
             raise ValueError("field must be a valid metadata column")
 
-        drug_meta = self.dataset.drug_meta.copy()
+        drug_meta = self.D.drug_meta.copy()
         if choices is not None:
             drug_meta = drug_meta[drug_meta.index.isin(choices)]
 
@@ -211,12 +210,10 @@ class MeanResponseSelector(DrugSelectorBase):
         seed: Seed = None,
         name: str | None = None,
     ) -> None:
-        self.dataset = D
+        self.D = D
         self.na_threshold = na_threshold
         self.name = name
-        self.response_mat = get_response_matrix(
-            self.dataset, impute=True, na_threshold=self.na_threshold
-        )
+        self.rmat = get_response_matrix(self.D, na_threshold=self.na_threshold)
 
     def select(
         self,
@@ -234,7 +231,7 @@ class MeanResponseSelector(DrugSelectorBase):
         -------
             A list of selected drugs.
         """
-        M = self.response_mat
+        M = self.rmat
         if choices is not None:
             M = M[M.index.isin(choices)]
 
@@ -267,12 +264,10 @@ class KMeansDrugSelector(DrugSelectorBase):
         seed: Seed = None,
         name: str | None = None,
     ) -> None:
-        self.dataset = D
+        self.D = D
         self.na_threshold = na_threshold
         self.name = name
-        self.response_mat = get_response_matrix(
-            self.dataset, impute=True, na_threshold=self.na_threshold
-        )
+        self.rmat = get_response_matrix(self.D, na_threshold=self.na_threshold)
         self._rs, self._np_rs = _seeded_state(seed)
 
     def select(
@@ -291,7 +286,7 @@ class KMeansDrugSelector(DrugSelectorBase):
         -------
             A list of selected drugs.
         """
-        M = self.response_mat
+        M = self.rmat
         if choices is not None:
             M = M[M.index.isin(choices)]
 
@@ -329,12 +324,10 @@ class AgglomerativeDrugSelector(DrugSelectorBase):
         seed: Seed = None,
         name: str | None = None,
     ) -> None:
-        self.dataset = D
+        self.D = D
         self.na_threshold = na_threshold
         self.name = name
-        self.response_mat = get_response_matrix(
-            self.dataset, impute=True, na_threshold=self.na_threshold
-        )
+        self.rmat = get_response_matrix(self.D, na_threshold=self.na_threshold)
         self._rs, self._np_rs = _seeded_state(seed)
 
     def select(
@@ -353,7 +346,7 @@ class AgglomerativeDrugSelector(DrugSelectorBase):
         -------
             A list of selected drugs.
         """
-        M = self.response_mat
+        M = self.rmat
         if choices is not None:
             M = M[M.index.isin(choices)]
 
@@ -398,12 +391,10 @@ class PrincipalDrugSelector(DrugSelectorBase):
         seed: Seed = None,
         name: str | None = None,
     ) -> None:
-        self.dataset = D
+        self.D = D
         self.na_threshold = na_threshold
         self.name = name
-        self.response_mat = get_response_matrix(
-            self.dataset, impute=True, na_threshold=self.na_threshold
-        )
+        self.rmat = get_response_matrix(self.D, na_threshold=self.na_threshold)
         self._rs, self._np_rs = _seeded_state(seed)
 
     def select(
@@ -425,7 +416,7 @@ class PrincipalDrugSelector(DrugSelectorBase):
         """
         q = n - 1  # number of principal components
 
-        M = self.response_mat
+        M = self.rmat
         if choices is not None:
             M = M[M.index.isin(choices)]
 
@@ -454,51 +445,84 @@ class PrincipalDrugSelector(DrugSelectorBase):
 
         return list(M.index[indices_])
 
-    # def select(
-    #     self,
-    #     n: int,
-    #     q: int | None = None,
-    #     choices: t.Iterable[str] | None = None,
-    # ) -> t.List[str]:
-    #     """Selects drugs using Principle Feature Analysis.
 
-    #     Parameters
-    #     ----------
-    #         n: The number of drugs to select.
-    #         q: The number of principal components (must be less than `n`).
-    #         choices: The drugs to choose from.
-    #         random_state: Optional random state for K-Means and PCA.
+class PrincipalDrugSelectorV2(DrugSelectorBase):
+    """Drug selection using Principal Feature Analysis on the drug-drug corr matrix.
 
-    #     Returns
-    #     -------
-    #         A list of selected drugs.
-    #     """
-    #     if q is None:
-    #         q = n - 1
-    #     elif n <= q:
-    #         raise ValueError(f"`q` must be less than `n`.")
+    Parameters
+    ----------
+        D: The `Dataset` object to select from.
+        seed: Optional seed for random number generation.
 
-    #     M = self.response_mat
-    #     if choices is not None:
-    #         M = M[M.index.isin(choices)]
+    References
+    ----------
+        .. [1] Lu, Y., Cohen, I., Zhou, X.S., Tian, Q. "Feature
+               selection using principal feature analysis", Proceedings of the
+               15th ACM International Conference on Multimedia, 301-304, 2007.
+    """
 
-    #     X = M.T
-    #     X_std = StandardScaler().fit_transform(X)
-    #     corr_matrix = np.corrcoef(X_std, rowvar=False)
+    def __init__(
+        self,
+        D: Dataset,
+        na_threshold: float | None = None,
+        seed: Seed = None,
+        name: str | None = None,
+    ) -> None:
+        self.D = D
+        self.na_thresh = na_threshold
+        self.name = name
+        self.rmat = get_response_matrix(self.D, False, self.na_thresh).T
+        # NOTE: have a separate function for this
+        self.cmat = self.rmat.corr(method="pearson").dropna(axis=1, how="all")
+        imputer = KNNImputer(n_neighbors=5, weights="distance")
+        self.cmat[:] = imputer.fit_transform(self.cmat)
+        self._rs, self._np_rs = _seeded_state(seed)
 
-    #     pca = PCA(q, random_state=self._np_rs)
-    #     pca.fit(corr_matrix)
-    #     A = pca.components_.T
+    def select(
+        self,
+        n: int,
+        choices: t.Iterable[str] | None = None,
+    ) -> t.List[str]:
+        """Selects drugs using Principle Feature Analysis.
 
-    #     # TODO: add min explained variance threshold before restart
+        Parameters
+        ----------
+            n: The number of drugs to select.
+            choices: The drugs to choose from.
+            random_state: Optional random state for K-Means and PCA.
 
-    #     km = KMeans(n, n_init="auto", random_state=self._np_rs)
-    #     _ = km.fit(A)
+        Returns
+        -------
+            A list of selected drugs.
+        """
 
-    #     D = scd.cdist(km.cluster_centers_, A)
-    #     inds = [np.argmin(x) for x in D]
+        M = self.cmat
+        if choices is not None:
+            M = M[M.index.isin(choices)]
 
-    #     return list(M.index[inds])
+        # return all drugs if fewer than choices
+        if M.shape[0] <= n:
+            warnings.warn(f"Fewer than {n} drugs available for sample.")
+            return list(M.index)
+
+        X = M.T
+        svd = PCA(random_state=self._np_rs).fit(X)
+        q = n - 2  # TODO: pass this as a parameter or estimate from explained variance
+        A_q = svd.components_.T[:, :q]
+
+        kmeans = KMeans(n_clusters=n, random_state=self._np_rs, n_init="auto")
+        _ = kmeans.fit(A_q)
+        clusters = kmeans.predict(A_q)
+        cluster_centers = kmeans.cluster_centers_
+
+        dists = defaultdict(list)
+        for i, c in enumerate(clusters):
+            dist = euclidean_distances([A_q[i, :]], [cluster_centers[c, :]])[0][0]
+            dists[c].append((i, dist))
+
+        indices_ = [sorted(f, key=lambda x: x[1])[0][0] for f in dists.values()]
+
+        return list(M.index[indices_])
 
 
 class DOptimalDrugSelector(DrugSelectorBase):
@@ -511,6 +535,10 @@ class DOptimalDrugSelector(DrugSelectorBase):
         seed: Seed = None,
         name: str | None = None,
     ) -> None:
+        raise NotImplementedError(
+            "DOptimalDrugSelector.select() is not implemented. "
+            "This method is not yet supported in the screendl package."
+        )
         self.dataset = D
         self.na_threshold = na_threshold
         self.lambda_reg = lambda_reg
@@ -573,9 +601,10 @@ DrugSelectorType = t.Union[
     t.Type[KMeansDrugSelector],
     t.Type[AgglomerativeDrugSelector],
     t.Type[PrincipalDrugSelector],
+    t.Type[PrincipalDrugSelectorV2],
     t.Type[MeanResponseSelector],
     t.Type[UniformDrugSelector],
-    t.Type[DOptimalDrugSelector],
+    # t.Type[DOptimalDrugSelector],
 ]
 
 
@@ -583,7 +612,8 @@ SELECTORS: t.Dict[str, DrugSelectorType] = {
     "agglomerative": AgglomerativeDrugSelector,
     "kmeans": KMeansDrugSelector,
     "principal": PrincipalDrugSelector,
+    "principal-v2": PrincipalDrugSelectorV2,
     "random": RandomDrugSelector,
     "uniform": UniformDrugSelector,
-    "doptimal": DOptimalDrugSelector,
+    # "doptimal": DOptimalDrugSelector,
 }
