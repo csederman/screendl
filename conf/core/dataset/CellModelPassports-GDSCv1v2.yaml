@@ -1,0 +1,18 @@
+name: CellModelPassports-GDSCv1v2
+
+dir: "${_datastore_}/datasets/${dataset.name}"
+
+split:
+  dir: "${dataset.dir}/splits"
+  name: "tumor_blind"
+  id: 1
+
+sources:
+
+  labels: "${dataset.dir}/LabelsLogIC50.csv"
+  cell:
+    meta: "${dataset.dir}/MetaCellAnnotations.csv"
+    exp: "${dataset.dir}/ScreenDL/FeatureGeneExpression.csv"
+  drug:
+    meta: "${dataset.dir}/MetaDrugAnnotations.csv"
+    mol: "${dataset.dir}/ScreenDL/FeatureMorganFingerprints.csv"

@@ -1,0 +1,20 @@
+name: ScreenDL
+
+hyper:
+  epochs: 100
+  batch_size: 256
+  learning_rate: 0.0001
+
+  activation: leaky_relu
+  noise_stddev: 0.3
+  use_noise: true
+  weight_decay: 1e-4
+  early_stopping: true
+
+  hidden_dims:
+    exp: [512, 256, 128, 64]
+    mol: [256, 128, 64]
+    shared: [128, 64]
+
+io:
+  save: true

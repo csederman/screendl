@@ -1,0 +1,23 @@
+defaults:
+  - _self_
+  - dataset: CellModelPassports-GDSCv1v2-HCI
+  - model: ScreenDL
+
+_datastore_: ${hydra:runtime.cwd}/data
+_experiment_: ${_datastore_}/outputs/core
+
+hydra:
+  run:
+    dir: ${_experiment_}/${dataset.name}/${model.name}/runs/${now:%Y-%m-%d}_${now:%H-%M-%S}
+  job:
+    chdir: true
+  sweep:
+    dir: ${_experiment_}/${dataset.name}/${model.name}/multiruns/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    subdir: ${hydra:job.num}
+  sweeper:
+    params:
+      dataset.split.id: 1,2,3,4,5,6,7,8,9,10
+
+pretrain:
+  independent_norm: false # for use when training on PDxO
+  full_dataset_mode: false
