@@ -24,15 +24,17 @@ xfer:
     batch_size: 256
     learning_rate: 1e-4
     weight_decay: 1e-2
-    frozen_layer_prefixes:
-      - mol
+    frozen_layer_prefixes: null
     frozen_layer_names:
       - exp_mlp_1
+      - mol_mlp_1
+      - mol_mlp_2
 
 screenahead:
   opt:
     seed: 1771
     n_drugs: 12
+    na_thresh: null
     selector: principal
     exclude_drugs: null
     mode: screen-selected # screen-all or screen-selected
@@ -49,8 +51,8 @@ experiment:
   pdx_obs_path: ${_datastore_}/pdx/pdx_clinical_response.csv
   pdx_ids: null
   keep_pdmc_only_drugs: all
-  min_pdmcs_per_drug: 8
-  iter: 1
+  min_pdmcs_per_drug: 20
+  background_correction: false
 
 output:
   log: logs

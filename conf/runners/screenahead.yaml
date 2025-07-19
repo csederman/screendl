@@ -28,6 +28,7 @@ screenahead:
     epochs: 20
   io:
     predict_all: false
+    permute_exp: false
 
 output:
   log: logs
