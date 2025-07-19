@@ -16,9 +16,9 @@ import random
 import numpy as np
 import tensorflow as tf
 
-np.random.seed(1771)
-random.seed(1771)
-tf.random.set_seed(1771)
+# np.random.seed(1771)
+# random.seed(1771)
+# tf.random.set_seed(1771)
 
 from omegaconf import DictConfig
 
@@ -41,7 +41,7 @@ def run(cfg: DictConfig) -> None:
     module_name = f"screendl.pipelines.basic.{module_file}"
     module = importlib.import_module(module_name)
 
-    _, scores, _ = module.run_pdx_pipeline(cfg)
+    _, scores, _ = module.run_pdx_pipeline_v2(cfg)
 
 
 if __name__ == "__main__":
