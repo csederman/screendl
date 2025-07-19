@@ -171,5 +171,7 @@ scripts/utils/
 /conf/runners/learning_curve*.yaml
 /conf/runners/*.local.yaml
 /conf/runners/dataset/*.local.yaml
+/conf/core/**/*.local.yaml
 /**/.scratch
+/**/*.local.sh
 /logs/
