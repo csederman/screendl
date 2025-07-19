@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - dataset: CellModelPassports-GDSCv1v2-HCI.local
+  - dataset: CellModelPassports-GDSCv1v2-HCI
   - model: ScreenDL # we use the same input features as ScreenDL
 
 _datastore_: ${hydra:runtime.cwd}/data
