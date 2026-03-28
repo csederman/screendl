@@ -18,12 +18,13 @@ def _create_expression_subnetwork(
     hidden_dims: t.List[int] | None = None,
     use_l2: bool = False,
     use_noise: bool = False,
-    use_batch_norm: bool = False,
+    use_normalization: bool = False,
     use_dropout: bool = False,
     l2_factor: float = 0.01,
     dropout_rate: float = 0.1,
     noise_stddev: float = 0.1,
     activation: t.Any = "relu",
+    norm_type: str | None = None,
 ) -> keras.Model:
     """Creates the expression subnetwork."""
     x = input_layer = layers.Input((dim,), name="exp_input")
@@ -50,10 +51,11 @@ def _create_expression_subnetwork(
             activation=("tanh" if i == n_hidden else activation),
             # activation=activation,
             use_l2=use_l2,
-            use_batch_norm=use_batch_norm,
+            use_normalization=use_normalization,
             use_dropout=use_dropout,
             l2_factor=l2_factor,
             dropout_rate=dropout_rate,
+            norm_type=norm_type,
             name=f"exp_mlp_{i}",
         )
         x = mlp_block(x)
@@ -65,11 +67,12 @@ def _create_mutation_subnetwork(
     dim: int,
     hidden_dims: t.List[int] | None = None,
     use_l2: bool = False,
-    use_batch_norm: bool = False,
+    use_normalization: bool = False,
     use_dropout: bool = False,
     l2_factor: float = 0.01,
     dropout_rate: float = 0.1,
     activation: t.Any = "relu",
+    norm_type: str | None = None,
 ) -> keras.Model:
     """Creates the mutation subnetwork."""
     x = input_layer = layers.Input((dim,), name="mut_input")
@@ -84,10 +87,11 @@ def _create_mutation_subnetwork(
             activation=("tanh" if i == n_hidden else activation),
             # activation=activation,
             use_l2=use_l2,
-            use_batch_norm=use_batch_norm,
+            use_normalization=use_normalization,
             use_dropout=use_dropout,
             l2_factor=l2_factor,
             dropout_rate=dropout_rate,
+            norm_type=norm_type,
             name=f"mut_mlp_{i}",
         )
         x = mlp_block(x)
@@ -99,11 +103,12 @@ def _create_ontology_subnetwork(
     dim: int,
     hidden_dims: t.List[int] | None = None,
     use_l2: bool = False,
-    use_batch_norm: bool = False,
+    use_normalization: bool = False,
     use_dropout: bool = False,
     l2_factor: float = 0.01,
     dropout_rate: float = 0.1,
     activation: t.Any = "relu",
+    norm_type: str | None = None,
 ) -> keras.Model:
     """Creates the ontology subnetwork."""
     x = input_layer = layers.Input((dim,), name="ont_input")
@@ -118,10 +123,11 @@ def _create_ontology_subnetwork(
             activation=("tanh" if i == n_hidden else activation),
             # activation=activation,
             use_l2=use_l2,
-            use_batch_norm=use_batch_norm,
+            use_normalization=use_normalization,
             use_dropout=use_dropout,
             l2_factor=l2_factor,
             dropout_rate=dropout_rate,
+            norm_type=norm_type,
             name=f"ont_mlp_{i}",
         )
         x = mlp_block(x)
@@ -135,12 +141,13 @@ def _create_copy_number_subnetwork(
     hidden_dims: t.List[int] | None = None,
     use_l2: bool = False,
     use_noise: bool = False,
-    use_batch_norm: bool = False,
+    use_normalization: bool = False,
     use_dropout: bool = False,
     l2_factor: float = 0.01,
     dropout_rate: float = 0.1,
     noise_stddev: float = 0.1,
     activation: t.Any = "relu",
+    norm_type: str | None = None,
 ) -> keras.Model:
     """Creates the mutation subnetwork."""
     x = input_layer = layers.Input((dim,), name="cnv_input")
@@ -167,10 +174,11 @@ def _create_copy_number_subnetwork(
             activation=("tanh" if i == n_hidden else activation),
             # activation=activation,
             use_l2=use_l2,
-            use_batch_norm=use_batch_norm,
+            use_normalization=use_normalization,
             use_dropout=use_dropout,
             l2_factor=l2_factor,
             dropout_rate=dropout_rate,
+            norm_type=norm_type,
             name=f"cnv_mlp_{i}",
         )
         x = mlp_block(x)
@@ -191,12 +199,13 @@ def _create_cell_subnetwork(
     ont_hidden_dims: t.List[int] | None = None,
     use_l2: bool = False,
     use_noise: bool = False,
-    use_batch_norm: bool = False,
+    use_normalization: bool = False,
     use_dropout: bool = False,
     l2_factor: float = 0.01,
     dropout_rate: float = 0.1,
     noise_stddev: float = 0.1,
     activation: t.Any = "relu",
+    norm_type: str | None = None,
 ) -> keras.Model:
     """Creates the cell subnetwork.
 
@@ -213,7 +222,7 @@ def _create_cell_subnetwork(
             the mutation subnetwork.
         cnv_hidden_dims: An optional list specifying hidden layers/units for
             the copy number subnetwork.
-        use_batch_norm: Whether or not to use batch normalization.
+        use_normalization: Whether or not to use batch normalization.
         use_dropout: Whether or not to use dropout.
         dropout_rate: The dropout rate. Ignored if `use_dropout` is `False`.
 
@@ -227,12 +236,13 @@ def _create_cell_subnetwork(
         exp_hidden_dims,
         use_l2=use_l2,
         use_noise=use_noise,
-        use_batch_norm=use_batch_norm,
+        use_normalization=use_normalization,
         use_dropout=use_dropout,
         l2_factor=l2_factor,
         dropout_rate=dropout_rate,
         noise_stddev=noise_stddev,
         activation=activation,
+        norm_type=norm_type,
     )
     subnet_inputs = [exp_subnet.input]
     subnet_output = exp_subnet.output
@@ -242,11 +252,12 @@ def _create_cell_subnetwork(
             mut_dim,
             mut_hidden_dims,
             use_l2=use_l2,
-            use_batch_norm=use_batch_norm,
+            use_normalization=use_normalization,
             use_dropout=use_dropout,
             l2_factor=l2_factor,
             dropout_rate=dropout_rate,
             activation=activation,
+            norm_type=norm_type,
         )
         subnet_inputs.append(mut_subnet.input)
         subnet_output = layers.Concatenate()([subnet_output, mut_subnet.output])
@@ -258,12 +269,13 @@ def _create_cell_subnetwork(
             cnv_hidden_dims,
             use_l2=use_l2,
             use_noise=use_noise,
-            use_batch_norm=use_batch_norm,
+            use_normalization=use_normalization,
             use_dropout=use_dropout,
             l2_factor=l2_factor,
             dropout_rate=dropout_rate,
             noise_stddev=noise_stddev,
             activation=activation,
+            norm_type=norm_type,
         )
         subnet_inputs.append(cnv_subnet.input)
         subnet_output = layers.Concatenate()([subnet_output, cnv_subnet.output])
@@ -273,11 +285,12 @@ def _create_cell_subnetwork(
             ont_dim,
             ont_hidden_dims,
             use_l2=use_l2,
-            use_batch_norm=use_batch_norm,
+            use_normalization=use_normalization,
             use_dropout=use_dropout,
             l2_factor=l2_factor,
             dropout_rate=dropout_rate,
             activation=activation,
+            norm_type=norm_type,
         )
         subnet_inputs.append(ont_subnet.input)
         subnet_output = layers.Concatenate()([subnet_output, ont_subnet.output])
@@ -289,11 +302,12 @@ def _create_drug_subnetwork(
     mol_dim: int,
     mol_hidden_dims: t.List[int] | None = None,
     use_l2: bool = False,
-    use_batch_norm: bool = False,
+    use_normalization: bool = False,
     use_dropout: bool = False,
     l2_factor: float = 0.01,
     dropout_rate: float = 0.1,
     activation: t.Any = "relu",
+    norm_type: str | None = None,
 ) -> keras.Sequential:
     """Creates the drug subnetwork.
 
@@ -301,7 +315,7 @@ def _create_drug_subnetwork(
     ----------
         mol_dim: The dimension of the drug subnetwork.
         mol_hidden_dims: Optional list specifying hidden layers/units.
-        use_batch_norm: Whether or not to use batch normalization.
+        use_normalization: Whether or not to use batch normalization.
         use_dropout: Whether or not to use dropout.
         dropout_rate: The dropout rate. Ignored if `use_dropout` is `False`.
 
@@ -321,10 +335,11 @@ def _create_drug_subnetwork(
             activation=("tanh" if i == n_hidden else activation),
             # activation=activation,
             use_l2=use_l2,
-            use_batch_norm=use_batch_norm,
+            use_normalization=use_normalization,
             use_dropout=use_dropout,
             l2_factor=l2_factor,
             dropout_rate=dropout_rate,
+            norm_type=norm_type,
             name=f"mol_mlp_{i}",
         )
         x = mlp_block(x)
@@ -348,12 +363,13 @@ def create_model(
     shared_hidden_dims: t.List[int] | None = None,
     use_l2: bool = False,
     use_noise: bool = False,
-    use_batch_norm: bool = False,
+    use_normalization: bool = False,
     use_dropout: bool = False,
     l2_factor: float = 0.01,
     noise_stddev: float = 0.1,
     dropout_rate: float = 0.1,
     activation: t.Any = "relu",
+    norm_type: str | None = None,
 ) -> keras.Model:
     """"""
     cell_subnet = _create_cell_subnetwork(
@@ -369,23 +385,25 @@ def create_model(
         ont_hidden_dims=ont_hidden_dims,
         use_l2=use_l2,
         use_noise=use_noise,
-        use_batch_norm=use_batch_norm,
+        use_normalization=use_normalization,
         use_dropout=use_dropout,
         l2_factor=l2_factor,
         dropout_rate=dropout_rate,
         noise_stddev=noise_stddev,
         activation=activation,
+        norm_type=norm_type,
     )
 
     drug_subnet = _create_drug_subnetwork(
         mol_dim,
         mol_hidden_dims=mol_hidden_dims,
         use_l2=use_l2,
-        use_batch_norm=use_batch_norm,
+        use_normalization=use_normalization,
         use_dropout=use_dropout,
         l2_factor=l2_factor,
         dropout_rate=dropout_rate,
         activation=activation,
+        norm_type=norm_type,
     )
 
     if isinstance(cell_subnet.input, list):
@@ -413,10 +431,11 @@ def create_model(
             units,
             activation=activation,
             use_l2=use_l2,
-            use_batch_norm=use_batch_norm,
+            use_normalization=use_normalization,
             use_dropout=use_dropout,
             dropout_rate=dropout_rate,
             l2_factor=l2_factor,
+            norm_type=norm_type,
             name=f"shared_mlp_{i}",
         )
         x = mlp_block(x)

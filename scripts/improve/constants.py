@@ -22,7 +22,7 @@ IMPROVE_ADDITIONAL_DEFINITIONS = [
         "default": 0.1,
     },
     {
-        "name": "use_batch_norm",
+        "name": "use_normalization",
         "type": bool,
         "default": False,
     },

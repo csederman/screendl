@@ -113,7 +113,7 @@ def train(g_params: GParams) -> t.Dict[str, float]:
         exp_hidden_dims=g_params["exp_hidden_dims"],
         mol_hidden_dims=g_params["mol_hidden_dims"],
         shared_hidden_dims=g_params["shared_hidden_dims"],
-        use_batch_norm=g_params["use_batch_norm"],
+        use_normalization=g_params["use_normalization"],
         use_dropout=g_params["use_dropout"],
         use_noise=g_params["use_noise"],
         use_l2=g_params["use_l2"],

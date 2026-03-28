@@ -15,6 +15,7 @@ import typing as t
 
 from omegaconf import DictConfig
 from pathlib import Path
+from scipy import stats
 from sklearn.preprocessing import StandardScaler
 from tensorflow import keras
 
@@ -25,6 +26,7 @@ from cdrpy.mapper import BatchedResponseGenerator
 
 from screendl import model as screendl
 from screendl.utils.evaluation import make_pred_df, get_eval_metrics, ScoreDict
+from screendl.utils.serialization import to_jsonable
 
 
 log = logging.getLogger(__name__)
@@ -124,9 +126,19 @@ def data_preprocessor(
 
     # normalize the gene expression
     exp_enc: PandasEncoder = train_dataset.cell_encoders["exp"]
-    X_exp = np.array(exp_enc.encode(list(set(train_dataset.cell_ids))))
-    exp_scaler = StandardScaler().fit(X_exp)
-    exp_enc.data[:] = exp_scaler.transform(exp_enc.data.values)
+
+    exp_norm_method = cfg.dataset.preprocess.norm_exp
+    if exp_norm_method == "between":
+        X_exp = np.array(exp_enc.encode(list(set(train_dataset.cell_ids))))
+        exp_scaler = StandardScaler().fit(X_exp)
+        exp_enc.data[:] = exp_scaler.transform(exp_enc.data.values)
+    elif exp_norm_method == "within":
+        # normalize within samples - no sklearn transform needed
+        exp_enc.data = exp_enc.data.transform(
+            lambda row: stats.zscore(row, ddof=0), axis=1
+        )
+    else:
+        raise ValueError(f"Invalid exp_norm method: {exp_norm_method}")
 
     # normalize copy number data if present
     if "cnv" in train_dataset.cell_encoders:
@@ -192,13 +204,14 @@ def model_builder(cfg: DictConfig, train_dataset: Dataset) -> keras.Model:
         mol_hidden_dims=params.hyper.hidden_dims.mol,
         shared_hidden_dims=params.hyper.hidden_dims.shared,
         use_noise=params.hyper.use_noise,
-        use_batch_norm=params.hyper.use_batch_norm,
+        use_normalization=params.hyper.use_normalization,
         use_dropout=params.hyper.use_dropout,
         use_l2=params.hyper.use_l2,
         noise_stddev=params.hyper.noise_stddev,
         l2_factor=params.hyper.l2_factor,
         dropout_rate=params.hyper.dropout_rate,
         activation=params.hyper.activation,
+        norm_type=params.hyper.norm_type,
     )
 
     return model
@@ -281,7 +294,7 @@ def model_evaluator(
     pred_df.to_csv("predictions.csv", index=False)
 
     with open("scores.json", "w", encoding="utf-8") as fh:
-        json.dump(scores, fh, ensure_ascii=False, indent=4)
+        json.dump(to_jsonable(scores), fh, ensure_ascii=False, indent=4)
 
     if cfg.dataset.output.save:
         ds_dir = Path("./datasets")
