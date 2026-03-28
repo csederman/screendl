@@ -325,9 +325,7 @@ def _decomp_tumor_features(
     )
 
 
-def _decomp_drug_features(
-    X: pd.DataFrame, n_features: int | None = None
-) -> pd.DataFrame:
+def _decomp_drug_features(X: pd.DataFrame, n_features: int | None = None) -> pd.DataFrame:
     """Reduce drug feature dimensionality using PCA."""
     pca = PCA(n_components=n_features, random_state=42)
     X_decomp = pca.fit_transform(X.transform(stats.zscore).dropna(axis=1))
@@ -484,7 +482,6 @@ def run(cfg: DictConfig) -> None:
     log.info(f"Loading {dataset_name}...")
     D = data_loader(cfg)
     all_drug_ids = list(D.drug_encoders["mol"].keys())
-    print(len(all_drug_ids))
 
     log.info(f"Splitting {dataset_name}...")
     cell_ids = D.cell_meta[D.cell_meta["domain"] == "CELL"].index

@@ -17,7 +17,6 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 import tensorflow.keras.backend as K  # pyright: ignore[reportMissingImports]
-import typing as t
 
 from omegaconf import DictConfig
 from cdrpy.mapper import BatchedResponseGenerator
@@ -45,7 +44,6 @@ def run_sa(cfg: DictConfig) -> float:
     random.seed(cfg.seed)
     tf.random.set_seed(cfg.seed)
 
-    # What I should do here is just use importlib
     if not cfg.model.name in PIPELINES:
         raise ValueError("Unsupported model.")
 
@@ -61,9 +59,7 @@ def run_sa(cfg: DictConfig) -> float:
     # NOTE: some drug selection algorithms require un-normalized responses
     train_cell_ids = set(ds_dict["train"].cell_ids)
     selection_ds = ds_dict["full"].select_cells(train_cell_ids)
-
     test_ds: Dataset = ds_dict["test"]
-    test_gen = BatchedResponseGenerator(test_ds, 256)
 
     base_weights = base_model.get_weights()
 
@@ -111,9 +107,13 @@ def run_sa(cfg: DictConfig) -> float:
             split_type=cfg.dataset.split.name,
             norm_method=cfg.dataset.preprocess.norm,
         )
-        pred_dfs.append(
-            pred_df.assign(was_screened=lambda df: df["drug_id"].isin(screen_drugs))
+
+        pred_df = pred_df.assign(
+            was_screened=lambda df: df["drug_id"].isin(screen_drugs),
+            cell_screen_id=cell_id,
         )
+
+        pred_dfs.append(pred_df)
 
         # restore the weights before each iteration
         base_model.set_weights(base_weights)

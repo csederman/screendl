@@ -24,20 +24,18 @@ class MLPBlock(keras.layers.Layer):
         self.activation = activation
         self.dropout = dropout
         self.batch_norm = batch_norm
-
-        # NOTE: this is here to enable recursive setting of certain attributes
-        self.layers = list(
+        self.layers_list = list(
             filter(None, [self.dense, self.activation, self.dropout, self.batch_norm])
         )
 
-    def call(self, inputs: t.Any, training: bool = True) -> t.Any:
+    def call(self, inputs: t.Any, training: bool = None) -> t.Any:
         """"""
         x = self.dense(inputs)
-        if training and self.batch_norm is not None:
-            x = self.batch_norm(x)
+        if self.batch_norm is not None:
+            x = self.batch_norm(x, training=training)
         x = self.activation(x)
-        if training and self.dropout is not None:
-            x = self.dropout(x)
+        if self.dropout is not None:
+            x = self.dropout(x, training=training)
         return x
 
     def get_config(self) -> t.Dict[str, t.Any]:
@@ -74,7 +72,7 @@ def get_keras_activation(
     if identifier == "prelu":
         return keras.layers.PReLU()
     else:
-        return keras.layers.Activation(identifier)
+        return keras.layers.Activation(keras.activations.get(identifier))
 
 
 def make_mlp_block(

@@ -191,7 +191,6 @@ def model_builder(cfg: DictConfig, train_dataset: Dataset) -> keras.Model:
         ont_hidden_dims=params.hyper.hidden_dims.ont,
         mol_hidden_dims=params.hyper.hidden_dims.mol,
         shared_hidden_dims=params.hyper.hidden_dims.shared,
-        use_mr=False,
         use_noise=params.hyper.use_noise,
         use_batch_norm=params.hyper.use_batch_norm,
         use_dropout=params.hyper.use_dropout,

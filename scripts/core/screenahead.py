@@ -55,7 +55,7 @@ from screendl.utils.drug_selectors import SELECTORS
 from cdrpy.datasets.base import merge
 
 if t.TYPE_CHECKING:
-    from keras import Model
+    from tensorflow.keras import Model  # type: ignore[reportMissingImports]
     from cdrpy.datasets import Dataset
 
 

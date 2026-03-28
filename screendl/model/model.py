@@ -6,8 +6,8 @@ import tensorflow as tf
 import typing as t
 
 from tensorflow import keras
-from keras import Model
-from keras import layers
+from tensorflow.keras import Model  # type: ignore[reportMissingImports]
+from tensorflow.keras import layers  # type: ignore[reportMissingImports]
 
 from .layers import make_mlp_block
 
@@ -346,7 +346,6 @@ def create_model(
     ont_hidden_dims: t.List[int] | None = None,
     mol_hidden_dims: t.List[int] | None = None,
     shared_hidden_dims: t.List[int] | None = None,
-    use_mr: bool = False,
     use_l2: bool = False,
     use_noise: bool = False,
     use_batch_norm: bool = False,
@@ -354,7 +353,6 @@ def create_model(
     l2_factor: float = 0.01,
     noise_stddev: float = 0.1,
     dropout_rate: float = 0.1,
-    mr_index: int = -1,
     activation: t.Any = "relu",
 ) -> keras.Model:
     """"""

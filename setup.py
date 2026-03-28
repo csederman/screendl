@@ -7,17 +7,18 @@ from setuptools import setup
 requirements = [
     "numpy >= 1.21",
     "pandas >= 2.0.3",
-    "openpyxl == 3.1.2",
-    "tensorflow == 2.11.1",
-    "tensorflow-probability == 0.19.0",
-    "scikit-learn == 1.3.0",
-    "omegaconf >= 2.2, < 2.4",
+    "openpyxl",
+    # "tensorflow",
+    "tensorflow-probability[tf]",
+    "scikit-learn",
+    "omegaconf",
     "tqdm",
+    # bump some of these to "preprocess" group
     "rdkit",
-    "deepchem == 2.7.1",
+    "deepchem",
     "cdrpy",
-    "scipy == 1.8.1",
-    "mygene == 3.2.2",
+    "scipy >= 1.8.1",
+    "mygene >= 3.2.2",
 ]
 
 extras_require = {
