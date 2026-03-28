@@ -15,6 +15,7 @@ import random
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 import tensorflow as tf
 import tensorflow.keras.backend as K  # pyright: ignore[reportMissingImports]
 
@@ -69,8 +70,11 @@ def run_sa(cfg: DictConfig) -> float:
             np.random.permutation
         )
 
+    # suppress TF warnings for retracing
+    tf.get_logger().setLevel("ERROR")
+
     pred_dfs = []
-    for cell_id in set(test_ds.cell_ids):
+    for cell_id in tqdm(set(test_ds.cell_ids), desc="Fitting ScreenAhead models"):
         cell_ds: Dataset = test_ds.select_cells([cell_id])
         cell_gen = BatchedResponseGenerator(cell_ds, batch_size=cell_ds.n_drugs)
         choices = set(cell_ds.drug_ids)
@@ -78,7 +82,9 @@ def run_sa(cfg: DictConfig) -> float:
         # require at least 1 drug in the holdout set
         if len(choices) <= opts.n_drugs:
             print(cell_id)
-            msg = f"Skipping ScreenAhead for {cell_id} (fewer than {opts.n_drugs} drugs)"
+            msg = (
+                f"Skipping ScreenAhead for {cell_id} (fewer than {opts.n_drugs} drugs)"
+            )
             log.warning(msg)
             continue
 
