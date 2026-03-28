@@ -12,6 +12,21 @@ if t.TYPE_CHECKING:
     from cdrpy.data import Dataset
 
 
+def _iter_child_layers(layer: keras.layers.Layer) -> t.Iterable[keras.layers.Layer]:
+    """Yields direct child layers from either `.layers` or `.sub_layers`."""
+    seen: set[int] = set()
+
+    for attr in ("layers", "sub_layers"):
+        children = getattr(layer, attr, None)
+        if not children:
+            continue
+
+        for child in children:
+            if isinstance(child, keras.layers.Layer) and id(child) not in seen:
+                seen.add(id(child))
+                yield child
+
+
 def freeze_layers(
     model: keras.Model | keras.layers.Layer,
     names: str | t.Tuple[str] | None = None,
@@ -35,15 +50,26 @@ def freeze_layers(
     """
     if isinstance(names, str):
         names = (names,)
+    if isinstance(prefixes, str):
+        prefixes = (prefixes,)
 
-    for layer in model.layers:
+    visited: set[int] = set()
+
+    def _freeze(layer: keras.layers.Layer) -> None:
+        if id(layer) in visited:
+            return
+        visited.add(id(layer))
+
         if names is not None and layer.name in names:
             layer.trainable = False
+
         elif prefixes is not None and layer.name.startswith(prefixes):
             layer.trainable = False
-        elif hasattr(layer, "layers"):
-            freeze_layers(layer, names, prefixes)
 
+        for child in _iter_child_layers(layer):
+            _freeze(child)
+
+    _freeze(model)
     return model
 
 
