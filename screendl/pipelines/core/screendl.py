@@ -20,7 +20,7 @@ from pathlib import Path
 from omegaconf import OmegaConf
 
 from cdrpy.data.preprocess import GroupStandardScaler
-from cdrpy.data.datasets import Dataset
+from cdrpy.datasets import Dataset
 from cdrpy.mapper import BatchedResponseGenerator
 
 from screendl.model import (
@@ -195,7 +195,9 @@ def apply_preprocessing_pipeline(
     Dt.cell_encoders["exp"].data[:] = exp_scaler.transform(
         Dt.cell_encoders["exp"].data.values
     )
-    Dt.obs["label"] = resp_scaler_t.transform(Dt.obs[["label"]], groups=Dt.obs["drug_id"])
+    Dt.obs["label"] = resp_scaler_t.transform(
+        Dt.obs[["label"]], groups=Dt.obs["drug_id"]
+    )
 
     if Dv is not None:
         Dv.obs["label"] = resp_scaler_t.transform(
