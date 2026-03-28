@@ -24,7 +24,7 @@ class MLPBlock(keras.layers.Layer):
         self.activation = activation
         self.dropout = dropout
         self.batch_norm = batch_norm
-        self.layers_list = list(
+        self.sub_layers = list(
             filter(None, [self.dense, self.activation, self.dropout, self.batch_norm])
         )
 
