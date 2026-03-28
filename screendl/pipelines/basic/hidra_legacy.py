@@ -31,6 +31,7 @@ from cdrpy.util.io import read_pickled_dict
 from cdrpy.mapper import BatchedResponseGenerator
 
 from screendl.utils.evaluation import make_pred_df, get_eval_metrics, ScoreDict
+from screendl.utils.serialization import to_jsonable
 from screendl.utils import data_utils
 
 
@@ -177,7 +178,9 @@ def data_preprocessor(
     return train_dataset, val_dataset, test_dataset
 
 
-def model_builder(cfg: DictConfig, geneset_dict: t.Dict[str, t.List[str]]) -> keras.Model:
+def model_builder(
+    cfg: DictConfig, geneset_dict: t.Dict[str, t.List[str]]
+) -> keras.Model:
     """Builds the HiDRA model.
 
     Parameters
@@ -288,7 +291,7 @@ def model_evaluator(
     pred_df.to_csv("predictions.csv", index=False)
 
     with open("scores.json", "w", encoding="utf-8") as fh:
-        json.dump(scores, fh, ensure_ascii=False, indent=4)
+        json.dump(to_jsonable(scores), fh, ensure_ascii=False, indent=4)
 
     return scores
 
@@ -307,7 +310,9 @@ def run_pipeline(
     train_ds, val_ds, test_ds = data_splitter(cfg, ds)
 
     log.info(f"Preprocessing {dataset_name}...")
-    train_ds, val_ds, test_ds = data_preprocessor(cfg, gs_dict, train_ds, val_ds, test_ds)
+    train_ds, val_ds, test_ds = data_preprocessor(
+        cfg, gs_dict, train_ds, val_ds, test_ds
+    )
 
     log.info(f"Building {model_name}...")
     model = model_builder(cfg, gs_dict)

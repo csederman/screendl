@@ -31,6 +31,7 @@ from cdrpy.util.io import read_pickled_dict
 from cdrpy.mapper import BatchedResponseGenerator
 
 from screendl.utils.evaluation import make_pred_df, get_eval_metrics, ScoreDict
+from screendl.utils.serialization import to_jsonable
 from screendl.utils import data_utils
 
 
@@ -47,7 +48,7 @@ def import_deepcdr_namespace() -> SimpleNamespace:
     sys.path.insert(1, deepcdr_root)
 
     from model import KerasMultiSourceGCNModel
-    from run_DeepCDR import CalculateGraphFeat
+    from run_DeepCDR import CalculateGraphFeat  # type: ignore[import]
 
     del sys.path[1]
 
@@ -245,7 +246,9 @@ def model_trainer(
     params = cfg.model
     opt = keras.optimizers.Adam(learning_rate=params.hyper.learning_rate)
 
-    model.compile(optimizer=opt, loss="mean_squared_error", metrics=[tf_metrics.pearson])
+    model.compile(
+        optimizer=opt, loss="mean_squared_error", metrics=[tf_metrics.pearson]
+    )
 
     callbacks = []
 
@@ -321,7 +324,7 @@ def model_evaluator(
     pred_df.to_csv("predictions.csv", index=False)
 
     with open("scores.json", "w", encoding="utf-8") as fh:
-        json.dump(scores, fh, ensure_ascii=False, indent=4)
+        json.dump(to_jsonable(scores), fh, ensure_ascii=False, indent=4)
 
     return scores
 

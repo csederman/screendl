@@ -52,6 +52,7 @@ from screendl.pipelines.core.screendl import (
 )
 from screendl.utils import model_utils
 from screendl.utils.drug_selectors import SELECTORS
+from screendl.utils.serialization import to_jsonable
 from cdrpy.datasets.base import merge
 
 if t.TYPE_CHECKING:
@@ -149,7 +150,7 @@ def screenahead(args: argparse.Namespace) -> None:
 
     scores_file = os.path.join(args.dir, "scores.sa.json")
     with open(scores_file, "w", encoding="utf-8") as fh:
-        json.dump(scores, fh, ensure_ascii=False, indent=4)
+        json.dump(to_jsonable(scores), fh, ensure_ascii=False, indent=4)
 
     pp.pprint(scores)
 

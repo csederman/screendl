@@ -33,6 +33,7 @@ from cdrpy.util.validation import check_same_columns, check_same_indexes
 from cdrpy.mapper import BatchedResponseGenerator
 
 from screendl.utils.evaluation import make_pred_df, get_eval_metrics, ScoreDict
+from screendl.utils.serialization import to_jsonable
 
 
 log = logging.getLogger(__name__)
@@ -48,7 +49,7 @@ def import_dualgcn_namespace() -> SimpleNamespace:
     sys.path.insert(1, path)
 
     from model import KerasMultiSourceDualGCNModel
-    from DualGCN import CalculateGraphFeat, CelllineGraphAdjNorm
+    from DualGCN import CalculateGraphFeat, CelllineGraphAdjNorm  # type: ignore[import]
 
     del sys.path[1]
 
@@ -344,7 +345,7 @@ def model_evaluator(
     pred_df.to_csv("predictions.csv", index=False)
 
     with open("scores.json", "w", encoding="utf-8") as fh:
-        json.dump(scores, fh, ensure_ascii=False, indent=4)
+        json.dump(to_jsonable(scores), fh, ensure_ascii=False, indent=4)
 
     return scores
 

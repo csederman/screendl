@@ -53,6 +53,7 @@ from screendl.pipelines.core.screendl import (
     load_pretraining_configs,
     split_dataset,
 )
+from screendl.utils.serialization import to_jsonable
 from screendl.utils import model_utils
 
 
@@ -113,7 +114,7 @@ def finetune(args: argparse.Namespace) -> None:
 
     scores_file = os.path.join(args.dir, "scores.ft.json")
     with open(scores_file, "w", encoding="utf-8") as fh:
-        json.dump(scores, fh, ensure_ascii=False, indent=4)
+        json.dump(to_jsonable(scores), fh, ensure_ascii=False, indent=4)
 
     pp.pprint(scores)
 

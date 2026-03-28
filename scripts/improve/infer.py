@@ -23,6 +23,7 @@ from cdrpy.mapper import BatchedResponseGenerator
 from cdrpy.feat.transformers import GroupStandardScaler
 
 from screendl.utils import evaluation as eval_utils
+from screendl.utils.serialization import to_jsonable
 
 if t.TYPE_CHECKING:
     from cdrpy.feat.encoders import PandasEncoder
@@ -95,7 +96,7 @@ def infer(g_params: GParams) -> t.Dict[str, float]:
 
     scores = eval_utils.get_eval_metrics(result)
     with open(output_dir / "test_scores.json", "w", encoding="utf-8") as fh:
-        json.dump(scores, fh, ensure_ascii=False, indent=4)
+        json.dump(to_jsonable(scores), fh, ensure_ascii=False, indent=4)
 
     return scores
 
