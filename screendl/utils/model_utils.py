@@ -75,11 +75,8 @@ def freeze_layers(
 
 def configure_transfer_model(
     base_model: keras.Model,
-    optim: t.Any,
-    loss: t.Any = "mean_squared_error",
     frozen_layer_names: str | t.Tuple[str] | None = None,
     frozen_layer_prefixes: str | t.Tuple[str] | None = None,
-    training: bool = False,
 ) -> keras.Model:
     """Configures the model for transfer learning.
 
@@ -111,19 +108,21 @@ def configure_transfer_model(
     # model = keras.Model(inputs, output, name=base_model.name)
 
     model = freeze_layers(base_model, frozen_layer_names, frozen_layer_prefixes)
-    model.compile(optim, loss)
+    # model.compile(optim, loss)
 
     return model
 
 
 def fit_transfer_model(
-    base_model: keras.Model,
+    ft_model: keras.Model,
+    initial_weights: t.Any,
     dataset: Dataset,
     batch_size: int = 256,
     epochs: int = 10,
     learning_rate: float = 1e-4,
     weight_decay: float | None = None,
     fit_kwargs: t.Dict[t.Any, t.Any] | None = None,
+    loss: t.Any = "mean_squared_error",
     **kwargs,
 ) -> keras.Model:
     """Trains the transfer model.
@@ -154,16 +153,16 @@ def fit_transfer_model(
     batch_gen = BatchedResponseGenerator(dataset, batch_size)
     batch_seq = batch_gen.flow_from_dataset(dataset, shuffle=True, seed=1441)
 
-    model = configure_transfer_model(
-        base_model,
-        keras.optimizers.Adam(learning_rate, weight_decay=weight_decay),
-        **kwargs,
-    )
+    # model = configure_transfer_model(
+    #     base_model,
+    #     keras.optimizers.Adam(learning_rate, weight_decay=weight_decay),
+    #     **kwargs,
+    # )
 
     def scheduler(epoch: int, lr: float) -> float:
         if epoch <= 2:
             return lr
-        return lr * tf.math.exp(-0.1)
+        return float(lr * tf.math.exp(-0.1))
 
     callbacks = fit_kwargs.get("callbacks", [])
     if not isinstance(callbacks, list):
@@ -171,15 +170,20 @@ def fit_transfer_model(
     callbacks.append(keras.callbacks.LearningRateScheduler(scheduler))
     fit_kwargs["callbacks"] = callbacks
 
-    _ = model.fit(batch_seq, epochs=epochs, verbose=0, **fit_kwargs)
+    ft_model.set_weights(initial_weights)
+    ft_model.compile(
+        optimizer=keras.optimizers.Adam(learning_rate, weight_decay=weight_decay),
+        loss=loss,
+        jit_compile=False,
+    )
 
-    return model
+    _ = ft_model.fit(batch_seq, epochs=epochs, verbose=0, **fit_kwargs)
+
+    return ft_model
 
 
 def configure_screenahead_model(
     base_model: keras.Model,
-    optim: t.Any,
-    loss: t.Any = "mean_squared_error",
     frozen_layer_names: str | t.Tuple[str] | None = None,
     frozen_layer_prefixes: str | t.Tuple[str] | None = None,
     training: bool = False,
@@ -213,19 +217,20 @@ def configure_screenahead_model(
     model = keras.Model(inputs, output, name=base_model.name)
 
     model = freeze_layers(model, frozen_layer_names, frozen_layer_prefixes)
-    model.compile(optim, loss)
 
     return model
 
 
 def fit_screenahead_model(
-    base_model: keras.Model,
+    sa_model: keras.Model,
+    initial_weights: t.Any,
     dataset: Dataset,
     batch_size: int | None = None,
     epochs: int = 20,
     learning_rate: float = 1e-4,
     weight_decay: float | None = None,
     callbacks: t.List[t.Any] | None = None,
+    loss: t.Any = "mean_squared_error",
     **kwargs,
 ) -> keras.Model:
     """Trains the model using ScreenAhead.
@@ -256,9 +261,13 @@ def fit_screenahead_model(
     batch_gen = BatchedResponseGenerator(dataset, batch_size)
     batch_seq = batch_gen.flow_from_dataset(dataset, shuffle=True, seed=1441)
 
-    optim = keras.optimizers.Adam(learning_rate, weight_decay=weight_decay)
-    model = configure_screenahead_model(base_model, optim, **kwargs)
+    sa_model.set_weights(initial_weights)
+    sa_model.compile(
+        keras.optimizers.Adam(learning_rate, weight_decay=weight_decay),
+        loss=loss,
+        jit_compile=False,
+    )
 
-    _ = model.fit(batch_seq, epochs=epochs, verbose=0, callbacks=callbacks)
+    _ = sa_model.fit(batch_seq, epochs=epochs, verbose=0, callbacks=callbacks)
 
-    return model
+    return sa_model
