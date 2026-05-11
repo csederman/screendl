@@ -41,12 +41,18 @@ def pcorr(
 
 
 def get_predictions(model: keras.Model, batch_seq: ResponseSequence) -> np.ndarray:
-    """Generate predictions without triggering tf.function retracing."""
-    predictions = []
-    for batch_x, *_ in batch_seq:
-        batch_preds: tf.Tensor = model(batch_x, training=False)
-        predictions.append(batch_preds.numpy().flatten())
-    return np.concatenate(predictions)
+    """Generate predictions without building/caching Keras predict functions."""
+    predictions: list[np.ndarray] = []
+
+    for batch in batch_seq:
+        batch_x = batch[0] if isinstance(batch, tuple) else batch
+        batch_preds = model(batch_x, training=False)
+        predictions.append(np.asarray(batch_preds).reshape(-1))
+
+    if not predictions:
+        return np.array([], dtype=np.float32)
+
+    return np.concatenate(predictions, axis=0)
 
 
 def make_pred_df(ds: Dataset, preds: np.ndarray, **kwargs) -> pd.DataFrame:
@@ -102,14 +108,10 @@ def get_preds_vs_background(
     """Computes z-score predictions against a background distribution."""
     # NOTE: deprecated, use `get_predictions_vs_background` instead
 
-    tgt_gen = BatchedResponseGenerator(D_target, batch_size)
-    tgt_seq = tgt_gen.flow_from_dataset(D_target)
-    tgt_preds = M.predict(tgt_seq, verbose=0)
+    tgt_preds = _predict_internal(M, D_target, batch_size)
     tgt_preds = make_pred_df(D_target, tgt_preds, **kwargs)
 
-    bg_gen = BatchedResponseGenerator(D_background, batch_size)
-    bg_seq = bg_gen.flow_from_dataset(D_background)
-    bg_preds = M.predict(bg_seq, verbose=0)
+    bg_preds = _predict_internal(M, D_background, batch_size)
     bg_preds = make_pred_df(D_background, bg_preds, **kwargs)
 
     if grouped:
@@ -140,18 +142,16 @@ def get_preds_vs_background(
 def get_preds(
     M: keras.Model, D: Dataset, batch_size: int = 256, **kwargs
 ) -> pd.DataFrame:
-    """Computes z-score predictions against a background distribution."""
-    gen = BatchedResponseGenerator(D, batch_size)
-    seq = gen.flow_from_dataset(D)
-    preds = M.predict(seq, verbose=0)
-
+    """Computes model predictions for a dataset."""
+    preds = _predict_internal(M, D, batch_size)
     return make_pred_df(D, preds, **kwargs)
 
 
-def _predict_internal(M: keras.Model, D: Dataset, batch_size: bool = 256) -> np.ndarray:
-    """"""
+def _predict_internal(M: keras.Model, D: Dataset, batch_size: int = 256) -> np.ndarray:
+    """Predict using eager model calls instead of Keras `predict()`."""
     gen = BatchedResponseGenerator(D, batch_size)
-    return M.predict(gen.flow_from_dataset(D), verbose=0)
+    seq = gen.flow_from_dataset(D)
+    return get_predictions(M, seq)
 
 
 def _normalize_to_background_global(
