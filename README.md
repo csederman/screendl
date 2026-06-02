@@ -75,7 +75,7 @@ ScreenDL uses [Hydra](https://hydra.cc/) for config management. Before running S
 
 ### Data Preparation
 
-All datasets used to train and evaluate ScreenDL can be obtained by downloading the `screendl-data.zip` file from our Zenodo repository: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14906585.svg)](https://doi.org/10.5281/zenodo.14906585). After downloading the `screendl-data.zip` file, extract the `datasets` and `pdx` subdirectories and move them into the `data` directory in the root of the `screendl` repository following the steps below.
+All datasets used to train and evaluate ScreenDL can be obtained by downloading the `screendl-data.zip` file from our Zenodo repository: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14906585.svg)](https://doi.org/10.5281/zenodo.14906584). After downloading the `screendl-data.zip` file, extract the `datasets` and `pdx` subdirectories and move them into the `data` directory in the root of the `screendl` repository following the steps below.
 
 ```{bash}
 unzip /path/to/screendl-data.zip
