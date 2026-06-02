@@ -22,9 +22,9 @@ sources:
 
   screendl:
     exp: "${dataset.dir}/ScreenDL/FeatureGeneExpression.csv"
-    mut: "${dataset.dir}/ScreenDL/FeatureSomaticMutations.csv"
-    cnv: "${dataset.dir}/ScreenDL/FeatureCopyNumberRatio.csv"
-    ont: "${dataset.dir}/ScreenDL/FeatureCancerTypeOntology.csv"
+    mut: null
+    cnv: null
+    ont: null
     mol: "${dataset.dir}/ScreenDL/FeatureMorganFingerprints.csv"
 
   deepcdr:
