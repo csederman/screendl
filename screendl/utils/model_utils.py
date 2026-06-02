@@ -6,6 +6,7 @@ import tensorflow as tf
 import typing as t
 
 from tensorflow import keras
+
 from cdrpy.mapper import BatchedResponseGenerator
 
 if t.TYPE_CHECKING:
@@ -25,6 +26,58 @@ def _iter_child_layers(layer: keras.layers.Layer) -> t.Iterable[keras.layers.Lay
             if isinstance(child, keras.layers.Layer) and id(child) not in seen:
                 seen.add(id(child))
                 yield child
+
+
+TrainableState = list[tuple[str, bool]]
+
+
+def iter_layers_recursive(
+    model: keras.Model | keras.layers.Layer,
+) -> t.Iterable[keras.layers.Layer]:
+    """Yield a model/layer and all nested child layers exactly once."""
+    visited: set[int] = set()
+
+    def _walk(layer: keras.layers.Layer) -> t.Iterator[keras.layers.Layer]:
+        if id(layer) in visited:
+            return
+
+        visited.add(id(layer))
+        yield layer
+
+        for child in _iter_child_layers(layer):
+            yield from _walk(child)
+
+    yield from _walk(model)
+
+
+def get_trainable_state(
+    model: keras.Model | keras.layers.Layer,
+) -> TrainableState:
+    """Capture recursive trainability flags in traversal order."""
+    return [(layer.name, layer.trainable) for layer in iter_layers_recursive(model)]
+
+
+def set_trainable_state(
+    model: keras.Model | keras.layers.Layer,
+    trainable_state: TrainableState,
+    *,
+    strict: bool = True,
+) -> None:
+    """Restore recursive trainability flags captured by `get_trainable_state`."""
+    layers = list(iter_layers_recursive(model))
+
+    if strict and len(layers) != len(trainable_state):
+        raise ValueError(
+            f"Layer count changed: model has {len(layers)} layers, "
+            f"state has {len(trainable_state)} layers."
+        )
+
+    for layer, (expected_name, trainable) in zip(layers, trainable_state):
+        if strict and layer.name != expected_name:
+            raise ValueError(
+                f"Layer order/name changed: expected {expected_name}, got {layer.name}."
+            )
+        layer.trainable = trainable
 
 
 def freeze_layers(
@@ -75,41 +128,14 @@ def freeze_layers(
 
 def configure_transfer_model(
     base_model: keras.Model,
-    frozen_layer_names: str | t.Tuple[str] | None = None,
-    frozen_layer_prefixes: str | t.Tuple[str] | None = None,
+    frozen_layer_names: str | tuple[str, ...] | None = None,
+    frozen_layer_prefixes: str | tuple[str, ...] | None = None,
 ) -> keras.Model:
-    """Configures the model for transfer learning.
-
-    Parameters
-    ----------
-    model : keras.Model
-        The pretrained model
-    optim : t.Any
-        A keras optimizer
-    loss : t.Any
-        The loss function to use, by default "mean_squared_error"
-    frozen_layer_names : str | t.Tuple[str] | None, optional
-        An iterable of layer names to be frozen, by default None
-    frozen_layer_prefixes : str | t.Tuple[str] | None, optional
-        A tuple of prefixes to freeze layers, by default None
-    training : bool, optional
-        Privileged training arg passed to the new model, by default False
-
-    Returns
-    -------
-    keras.Model
-        The configured model.
-    """
-
-    base_model.trainable = True
-
-    # inputs = base_model.inputs
-    # output = base_model(inputs, training=training)
-    # model = keras.Model(inputs, output, name=base_model.name)
-
-    model = freeze_layers(base_model, frozen_layer_names, frozen_layer_prefixes)
-    # model.compile(optim, loss)
-
+    """Configure an isolated transfer model."""
+    model = keras.models.clone_model(base_model)
+    model.set_weights(base_model.get_weights())
+    model.trainable = True
+    model = freeze_layers(model, frozen_layer_names, frozen_layer_prefixes)
     return model
 
 
@@ -165,9 +191,15 @@ def fit_transfer_model(
         return float(lr * tf.math.exp(-0.1))
 
     callbacks = fit_kwargs.get("callbacks", [])
-    if not isinstance(callbacks, list):
+    if callbacks is None:
+        callbacks = []
+    elif not isinstance(callbacks, list):
         callbacks = [callbacks]
+    else:
+        callbacks = list(callbacks)
+
     callbacks.append(keras.callbacks.LearningRateScheduler(scheduler))
+    fit_kwargs = dict(fit_kwargs)
     fit_kwargs["callbacks"] = callbacks
 
     ft_model.set_weights(initial_weights)
@@ -179,46 +211,30 @@ def fit_transfer_model(
 
     _ = ft_model.fit(batch_seq, epochs=epochs, verbose=0, **fit_kwargs)
 
+    del batch_seq
+    del batch_gen
+
     return ft_model
 
 
 def configure_screenahead_model(
     base_model: keras.Model,
-    frozen_layer_names: str | t.Tuple[str] | None = None,
-    frozen_layer_prefixes: str | t.Tuple[str] | None = None,
+    frozen_layer_names: str | tuple[str, ...] | None = None,
+    frozen_layer_prefixes: str | tuple[str, ...] | None = None,
     training: bool = False,
 ) -> keras.Model:
-    """Configures a model for ScreenAhead.
+    """Configure an isolated ScreenAhead model."""
+    model = keras.models.clone_model(base_model)
+    model.set_weights(base_model.get_weights())
+    model.trainable = True
 
-    Parameters
-    ----------
-    base_model : keras.Model
-        The pretrained model
-    optim : t.Any
-        A keras optimizer
-    loss : t.Any
-        The loss function to use, by default "mean_squared_error"
-    frozen_layer_names : str | t.Tuple[str] | None, optional
-        An iterable of layer names to be frozen, by default None
-    frozen_layer_prefixes : str | t.Tuple[str] | None, optional
-        A tuple of prefixes to freeze layers, by default None
-    training : bool, optional
-        Privileged training arg passed to the new model, by default False
+    # turn noise layer of during screenahead
+    inputs = model.inputs
+    outputs = model(inputs, training=training)
+    wrapped = keras.Model(inputs, outputs, name=model.name)
 
-    Returns
-    -------
-    keras.Model
-        The configured model.
-    """
-    base_model.trainable = True
-
-    inputs = base_model.inputs
-    output = base_model(inputs, training=training)
-    model = keras.Model(inputs, output, name=base_model.name)
-
-    model = freeze_layers(model, frozen_layer_names, frozen_layer_prefixes)
-
-    return model
+    wrapped = freeze_layers(wrapped, frozen_layer_names, frozen_layer_prefixes)
+    return wrapped
 
 
 def fit_screenahead_model(
@@ -269,5 +285,8 @@ def fit_screenahead_model(
     )
 
     _ = sa_model.fit(batch_seq, epochs=epochs, verbose=0, callbacks=callbacks)
+
+    del batch_seq
+    del batch_gen
 
     return sa_model

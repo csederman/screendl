@@ -9,6 +9,7 @@ import typing as t
 
 from scipy import stats
 from sklearn.preprocessing import StandardScaler
+
 from tensorflow import keras
 
 from cdrpy.mapper import BatchedResponseGenerator
@@ -152,6 +153,7 @@ def _predict_internal(M: keras.Model, D: Dataset, batch_size: int = 256) -> np.n
     gen = BatchedResponseGenerator(D, batch_size)
     seq = gen.flow_from_dataset(D)
     return get_predictions(M, seq)
+    # return M.predict(seq, verbose=0).flatten()
 
 
 def _normalize_to_background_global(
