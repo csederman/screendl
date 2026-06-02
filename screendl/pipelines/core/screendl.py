@@ -15,6 +15,7 @@ random.seed(1771)
 tf.random.set_seed(1771)
 
 from tensorflow import keras
+
 from sklearn.preprocessing import StandardScaler
 from scipy import stats
 from pathlib import Path
@@ -83,7 +84,7 @@ def preprocess_dataset(
 
     if exp_norm_method == "between":
         exp_scaler = StandardScaler()
-        exp_enc.data[:] = exp_scaler.fit_transform(exp_enc.data.values)
+        exp_enc.data.loc[:, :] = exp_scaler.fit_transform(exp_enc.data.values)
     elif exp_norm_method == "within":
         exp_enc.data = exp_enc.data.transform(
             lambda row: stats.zscore(row, ddof=0), axis=1
@@ -204,7 +205,7 @@ def apply_preprocessing_pipeline(
         resp_scaler_e: GroupStandardScaler = pickle.load(fh)
 
     if exp_scaler is not None:
-        Dt.cell_encoders["exp"].data[:] = exp_scaler.transform(
+        Dt.cell_encoders["exp"].data.loc[:, :] = exp_scaler.transform(
             Dt.cell_encoders["exp"].data.values
         )
     else:
