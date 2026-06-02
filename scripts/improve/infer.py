@@ -12,10 +12,12 @@ import pickle
 import numpy as np
 import typing as t
 import benchmark as bmk
+
 import tensorflow.keras.backend as K  # pyright: ignore[reportMissingImports]
 
 from pathlib import Path
 from sklearn.preprocessing import StandardScaler
+
 from tensorflow import keras
 
 from cdrpy.datasets import Dataset
@@ -75,7 +77,7 @@ def preprocess_data(g_params: GParams, D: Dataset) -> Dataset:
         exp_scaler: StandardScaler = pickle.load(fh)
 
     exp_enc: PandasEncoder = D.cell_encoders["exp"]
-    exp_enc.data[:] = exp_scaler.transform(exp_enc.data.values)
+    exp_enc.data.loc[:, :] = exp_scaler.transform(exp_enc.data.values)
 
     return D
 

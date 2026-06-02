@@ -45,14 +45,14 @@ BASELINES = {
 
 BASELINE_PARAM_GRIDS = {
     "ridge": {
-        "alpha": [0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000],
+        "alpha": [10, 100, 1000, 10000],
     },
     "forest": {
-        "max_depth": [20, None],
-        "max_features": ["sqrt", "log2"],
-        "min_samples_leaf": [1, 2, 4],
-        "min_samples_split": [2, 3, 4],
-        "n_estimators": [200, 400],
+        "max_depth": [20],
+        "max_features": ["sqrt"],
+        "min_samples_leaf": [1, 2],
+        "min_samples_split": [2],
+        "n_estimators": [200],
     },
 }
 
@@ -158,7 +158,6 @@ def train_baseline(
     )
 
     X_t, y_t = _prepare_data_for_sklearn_model(D_t)
-    # X_e, _ = _prepare_data_for_sklearn_model(D_e)
 
     D_t.shuffle(seed=cfg.baseline.seed)
     _ = reg.fit(X_t, y_t, groups=D_t.cell_ids)

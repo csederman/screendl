@@ -13,6 +13,7 @@ import pickle
 import numpy as np
 import typing as t
 import benchmark as bmk
+
 import tensorflow.keras.backend as K  # pyright: ignore[reportMissingImports]
 
 from pathlib import Path
@@ -26,7 +27,6 @@ from cdrpy.mapper import BatchedResponseGenerator
 
 from screendl import model as screendl
 from screendl.utils import evaluation as eval_utils
-
 
 GParams = t.Dict[str, t.Any]
 
@@ -87,7 +87,7 @@ def preprocess_data(
     exp_enc: PandasEncoder = train_ds.cell_encoders["exp"]
     x_train = np.array(exp_enc.encode(list(set(train_ds.cell_ids))))
     exp_scaler = StandardScaler().fit(x_train)
-    exp_enc.data[:] = exp_scaler.transform(exp_enc.data.values)
+    exp_enc.data.loc[:, :] = exp_scaler.transform(exp_enc.data.values)
 
     with open(output_dir / "exp_scaler.pkl", "wb") as fh:
         pickle.dump(exp_scaler, fh)

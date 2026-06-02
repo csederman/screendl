@@ -37,6 +37,7 @@ import numpy as np
 import pprint as pp
 import tensorflow as tf
 import typing as t
+
 import tensorflow.keras.backend as K  # pyright: ignore[reportMissingImports]
 
 np.random.seed(1771)
@@ -55,7 +56,6 @@ from screendl.pipelines.core.screendl import (
 )
 from screendl.utils.serialization import to_jsonable
 from screendl.utils import model_utils
-
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)

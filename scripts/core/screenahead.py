@@ -15,7 +15,6 @@ Run ScreenAhead for each ScreenDL-FT ensemble member for application in PDxOs:
         --dir="/path/to/pretrained/model/dir"
 """
 
-
 from __future__ import annotations
 
 import os
@@ -32,6 +31,7 @@ import numpy as np
 import pprint as pp
 import tensorflow as tf
 import typing as t
+
 import tensorflow.keras.backend as K  # pyright: ignore[reportMissingImports]
 
 np.random.seed(1771)
@@ -51,12 +51,13 @@ from screendl.pipelines.core.screendl import (
     split_dataset,
 )
 from screendl.utils import model_utils
-from screendl.utils.drug_selectors import SELECTORS
+from screendl.screenahead import SELECTORS
 from screendl.utils.serialization import to_jsonable
 from cdrpy.datasets.base import merge
 
 if t.TYPE_CHECKING:
     from tensorflow.keras import Model  # type: ignore[reportMissingImports]
+
     from cdrpy.datasets import Dataset
 
 
