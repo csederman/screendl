@@ -61,11 +61,15 @@ class MLPBlock(keras.layers.Layer):
         act_config = config.pop("activation")
         act_layer = keras.layers.deserialize(act_config)
 
+        dropout_layer = None
         dropout_config = config.pop("dropout")
-        dropout_layer = keras.layers.deserialize(dropout_config)
+        if dropout_config is not None:
+            dropout_layer = keras.layers.deserialize(dropout_config)
 
+        normalization_layer = None
         normalization_config = config.pop("normalization")
-        normalization_layer = keras.layers.deserialize(normalization_config)
+        if normalization_config is not None:
+            normalization_layer = keras.layers.deserialize(normalization_config)
 
         return cls(dense_layer, act_layer, dropout_layer, normalization_layer, **config)
 
