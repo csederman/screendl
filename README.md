@@ -16,63 +16,58 @@
   - [Models](#models)
   - [Datasets](#datasets)
 
-## Requirements
-
-ScreenDL was developed using Python 3.9.13 on a Linux operating system and requires the following packages (see Installation):
-
-- numpy (>= 1.21)
-- pandas (>= 2.0.3)
-- openpyxl (== 3.1.2)
-- tensorflow (== 2.11.1)
-- tensorflow-probability (== 0.19.0)
-- scikit-learn (== 1.3.0)
-- omegaconf (>= 2.2, < 2.4)
-- tqdm
-- rdkit
-- deepchem (== 2.7.1)
-- cdrpy
-- scipy (== 1.8.1)
-
-## Additional Hardware & Software Requirements
-
-ScreenDL has been tested on Linux. We currently do not support Windows or MacOS. We recommend using a Linux-based system to run ScreenDL.
-
-### Hardware
-
-All ScreenDL models were trained on GPU nodes provided by the Utah Center for High Performance Computing equipped with either NVIDIA GTX 1080 Ti GPUs with 3584 CUDA cores and 11 GB GDDR5X memory or NVIDIA A40 GPUs with 10,752 CUDA cores and 48 GB GDDR6 memory using cuda/11.3 and cudnn/8.2.0. _We note that ScreenDL can be trained using standard CPUs and does not require GPU hardware._
-
 ## Installation
 
-Follow the steps below to setup a python virtual environment and install `screendl`. Please note that most of ScreenDL's dependencies are installed automatically, however, `tensorflow`, `tensorflow-probability`, and our `cdrpy` library require manual installation as outlined below (<15 minutes):
+Follow the steps below to setup a python virtual environment and install `screendl`. Most dependencies — including CPU TensorFlow — are installed automatically. Only our `cdrpy` library requires manual installation (<15 minutes):
 
 1. Setup a new conda environment:
 
 ```{bash}
-conda create --name screendl-env python=3.9.13
+conda create --name screendl-env python=3.12
 conda activate screendl-env
 ```
 
-2. Install tensorflow and tensorflow-probability:
-
-```{bash}
-pip install tensorflow==2.11.1
-pip install tensorflow-probability==0.19.0
-```
-
-3. Install cdrpy:
+2. Install cdrpy:
 
 ```{bash}
 git clone https://github.com/csederman/cdrpy.git && cd cdrpy
 pip install --upgrade .
 ```
 
-4. Install screendl:
+3. Install screendl:
 
 ```{bash}
 cd ..
 git clone https://github.com/csederman/screendl.git && cd screendl
 pip install --upgrade ".[scripts]"
 ```
+
+For GPU support (CUDA TensorFlow), use the `gpu` or `all-gpu` extra instead:
+
+```{bash}
+pip install --upgrade ".[all-gpu]"
+```
+
+## Requirements
+
+ScreenDL was developed using Python 3.12 and requires the following packages (see Installation):
+
+- numpy (>= 1.26.4)
+- pandas (>= 3.0.1)
+- openpyxl (>= 3.1.5)
+- tensorflow (>= 2.21.0)
+- scikit-learn (>= 1.8.0)
+- omegaconf (>= 2.3.0)
+- tqdm
+- rdkit
+- deepchem (>= 2.8.1)
+- cdrpy
+- scipy (>= 1.17.1)
+- mygene (>= 3.2.2)
+
+### Hardware
+
+All ScreenDL models were trained on GPU nodes provided by the Utah Center for High Performance Computing equipped with either NVIDIA GTX 1080 Ti GPUs with 3584 CUDA cores and 11 GB GDDR5X memory or NVIDIA A40 GPUs with 10,752 CUDA cores and 48 GB GDDR6 memory using cuda/11.3 and cudnn/8.2.0. _We note that ScreenDL can be trained using standard CPUs and does not require GPU hardware._
 
 ## Running ScreenDL
 
