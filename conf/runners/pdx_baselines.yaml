@@ -4,7 +4,7 @@ defaults:
   - model: ScreenDL # we use the same input features as ScreenDL
 
 _datastore_: ${hydra:runtime.cwd}/data
-_experiment_: ${_datastore_}/outputs/experiments/pdx_baselines
+_experiment_: ${hydra:runtime.cwd}/outputs/experiments/pdx_baselines
 
 hydra:
   run:
@@ -24,11 +24,11 @@ baseline:
   seed: 1771
 
 experiment:
-  min_pdmcs_per_drug: 20
+  min_pdmcs_per_drug: 19
   keep_pdmc_only_drugs: all
   reduce_tumor_features: false
   reduce_drug_features: false
   num_tumor_features: 20
   num_drug_features: 20
-  pdx_obs_path: ${_datastore_}/pdx/pdx_clinical_response.csv
+  pdx_obs_path: ${_datastore_}/PDX/PDXLabels.csv
   pdx_ids: null

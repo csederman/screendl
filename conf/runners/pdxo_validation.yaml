@@ -4,7 +4,7 @@ defaults:
   - model: ScreenDL
 
 _datastore_: ${hydra:runtime.cwd}/data
-_experiment_: ${_datastore_}/outputs/experiments/pdxo_validation
+_experiment_: ${hydra:runtime.cwd}/outputs/experiments/pdxo_validation
 
 hydra:
   run:
@@ -29,6 +29,14 @@ xfer:
       - exp_mlp_1
       - mol_mlp_1
       - mol_mlp_2
+    aux:
+      enabled: true
+      drug_n_components: 16
+      cell_n_components: 16
+      drug_loss_weight: 0.001
+      cell_loss_weight: 0.001
+      extract_response_model: true
+      seed: 1441
 
 screenahead:
   opt:
@@ -47,7 +55,7 @@ screenahead:
     frozen_layer_names: null
 
 experiment:
-  min_pdmcs_per_drug: 20
+  min_pdmcs_per_drug: 19
   keep_pdmc_only_drugs: all
   background_correction: false
 

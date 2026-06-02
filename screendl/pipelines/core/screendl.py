@@ -15,12 +15,14 @@ random.seed(1771)
 tf.random.set_seed(1771)
 
 from tensorflow import keras
+
 from sklearn.preprocessing import StandardScaler
+from scipy import stats
 from pathlib import Path
 from omegaconf import OmegaConf
 
 from cdrpy.data.preprocess import GroupStandardScaler
-from cdrpy.data.datasets import Dataset
+from cdrpy.datasets import Dataset
 from cdrpy.mapper import BatchedResponseGenerator
 
 from screendl.model import (
@@ -77,8 +79,18 @@ def preprocess_dataset(
 
     # normalize the gene expression
     exp_enc: PandasEncoder = Dt.cell_encoders["exp"]
-    exp_scaler = StandardScaler()
-    exp_enc.data[:] = exp_scaler.fit_transform(exp_enc.data.values)
+    exp_norm_method = cfg.dataset.preprocess.norm_exp
+    exp_scaler = None
+
+    if exp_norm_method == "between":
+        exp_scaler = StandardScaler()
+        exp_enc.data.loc[:, :] = exp_scaler.fit_transform(exp_enc.data.values)
+    elif exp_norm_method == "within":
+        exp_enc.data = exp_enc.data.transform(
+            lambda row: stats.zscore(row, ddof=0), axis=1
+        )
+    else:
+        raise ValueError(f"Invalid expression normalization method: {exp_norm_method}")
 
     with open("exp_scaler.pkl", "wb") as fh:
         pickle.dump(exp_scaler, fh)
@@ -184,7 +196,7 @@ def apply_preprocessing_pipeline(
         root_dir = Path(root_dir)
 
     with open(root_dir / "exp_scaler.pkl", "rb") as fh:
-        exp_scaler: StandardScaler = pickle.load(fh)
+        exp_scaler: StandardScaler | None = pickle.load(fh)
 
     with open(root_dir / "resp_scaler.t.pkl", "rb") as fh:
         resp_scaler_t: GroupStandardScaler = pickle.load(fh)
@@ -192,10 +204,18 @@ def apply_preprocessing_pipeline(
     with open(root_dir / "resp_scaler.e.pkl", "rb") as fh:
         resp_scaler_e: GroupStandardScaler = pickle.load(fh)
 
-    Dt.cell_encoders["exp"].data[:] = exp_scaler.transform(
-        Dt.cell_encoders["exp"].data.values
+    if exp_scaler is not None:
+        Dt.cell_encoders["exp"].data.loc[:, :] = exp_scaler.transform(
+            Dt.cell_encoders["exp"].data.values
+        )
+    else:
+        # norm method was "within", so re-apply the z-score transformation
+        Dt.cell_encoders["exp"].data = Dt.cell_encoders["exp"].data.transform(
+            lambda row: stats.zscore(row, ddof=0), axis=1
+        )
+    Dt.obs["label"] = resp_scaler_t.transform(
+        Dt.obs[["label"]], groups=Dt.obs["drug_id"]
     )
-    Dt.obs["label"] = resp_scaler_t.transform(Dt.obs[["label"]], groups=Dt.obs["drug_id"])
 
     if Dv is not None:
         Dv.obs["label"] = resp_scaler_t.transform(

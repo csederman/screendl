@@ -16,3 +16,6 @@ sources:
   drug:
     meta: "${dataset.dir}/MetaDrugAnnotations.csv"
     mol: "${dataset.dir}/ScreenDL/FeatureMorganFingerprints.csv"
+
+preprocess:
+  norm_exp: "between" # within or between

@@ -58,6 +58,7 @@ from screendl.pipelines.core.screendl import (
     pretrain_model_from_config,
     split_dataset,
 )
+from screendl.utils.serialization import to_jsonable
 
 if t.TYPE_CHECKING:
     from omegaconf import DictConfig
@@ -104,7 +105,7 @@ def pretrain(cfg: DictConfig) -> None:
     preds.to_csv("predictions.pt.csv", index=False)
 
     with open("scores.pt.json", "w", encoding="utf-8") as fh:
-        json.dump(scores, fh, ensure_ascii=False, indent=4)
+        json.dump(to_jsonable(scores), fh, ensure_ascii=False, indent=4)
 
     pp.pprint(scores)
 

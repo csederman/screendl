@@ -4,7 +4,7 @@ defaults:
   - _self_
 
 _datastore_: ${hydra:runtime.cwd}/data
-_experiment_: ${_datastore_}/outputs/experiments/screenahead_related_drugs
+_experiment_: ${hydra:runtime.cwd}/outputs/experiments/screenahead_related_drugs
 
 hydra:
   run:

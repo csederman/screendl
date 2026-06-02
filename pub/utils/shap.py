@@ -9,6 +9,15 @@ import numpy as np
 import typing as t
 import tensorflow as tf
 
+try:
+    import tensorflow.keras.ops as K  # type: ignore
+
+    convert_to_tensor = K.convert_to_tensor
+except ImportError:
+    import tensorflow.keras.backend as K  # type: ignore
+
+    convert_to_tensor = tf.convert_to_tensor
+
 from functools import partial
 from scipy import stats
 from tensorflow import keras
@@ -17,6 +26,25 @@ from tqdm import tqdm
 from cdrpy.datasets import Dataset
 
 from screendl.utils.ensemble import ScreenDLEnsembleWrapper
+
+
+def _primary_output(y):
+    """Return the response tensor from a possibly multi-output model."""
+    if isinstance(y, dict):
+        if "response" in y:
+            return y["response"]
+        if "final_act" in y:
+            return y["final_act"]
+        # fallback: first dict value
+        return next(iter(y.values()))
+
+    if isinstance(y, (list, tuple)):
+        if len(y) == 1:
+            return y[0]
+        # ScreenDL main response should be the first output if AUX was appended.
+        return y[0]
+
+    return y
 
 
 def create_predict_func(
@@ -66,15 +94,29 @@ def create_predict_func(
     t_slice = keras.layers.Lambda(lambda x: x[:, :n_t])(x_in)
     d_slice = keras.layers.Lambda(lambda x: x[:, n_t:])(x_in)
 
-    t_baseline_expanded = tf.tile(tf.constant(t_baseline), [tf.shape(x_in)[0], 1])
-    d_baseline_expanded = tf.tile(tf.constant(d_baseline), [tf.shape(x_in)[0], 1])
+    t_baseline_expanded = keras.layers.Lambda(
+        lambda x: K.tile(
+            convert_to_tensor(t_baseline),
+            [K.shape(x)[0], 1],
+        )
+    )(x_in)
 
-    f_t_d = model([t_slice, d_slice], training=False)
-    f_t_db = model([t_slice, d_baseline_expanded], training=False)
-    f_tb_d = model([t_baseline_expanded, d_slice], training=False)
-    f_tb_db = model([t_baseline_expanded, d_baseline_expanded], training=False)
+    d_baseline_expanded = keras.layers.Lambda(
+        lambda x: K.tile(
+            convert_to_tensor(d_baseline),
+            [K.shape(x)[0], 1],
+        )
+    )(x_in)
+
+    f_t_d = _primary_output(model([t_slice, d_slice], training=False))
+    f_t_db = _primary_output(model([t_slice, d_baseline_expanded], training=False))
+    f_tb_d = _primary_output(model([t_baseline_expanded, d_slice], training=False))
+    f_tb_db = _primary_output(
+        model([t_baseline_expanded, d_baseline_expanded], training=False)
+    )
 
     out = f_t_d - f_t_db - f_tb_d + f_tb_db
+    out = keras.layers.Flatten()(out)
 
     return keras.Model(x_in, out)
 
@@ -132,7 +174,8 @@ def shap_adapter(
     d_baseline = np.zeros((1, d_dim))  # null drug -> model will predict tumor's GDS
 
     # background feature distributions for SHAP
-    t_bg = x_all_tumors.drop(tumor_id).loc[sorted_tumors[:n_bg_samples]].values
+    bg_candidates = [t for t in sorted_tumors if t != tumor_id]
+    t_bg = x_all_tumors.drop(tumor_id).loc[bg_candidates[:n_bg_samples]].values
 
     # we use the interested drug as the reference since we want to interpret why this
     # specific drug would work for this tumor relative to others
@@ -156,6 +199,122 @@ def shap_adapter(
     )
 
     return shap_values_t, shap_values_d
+
+
+def shap_adapter_batch(
+    M: keras.Model,
+    D: Dataset,
+    drug_id: str,
+    tumor_ids: t.List[str],
+    n_bg_samples: int = 10,
+    n_shap_samples: int = 1000,
+    sorted_tumors: t.List[str] | None = None,
+    batch_size: int = 32,
+) -> t.Dict[str, t.Tuple[pd.DataFrame, pd.DataFrame]]:
+    """Generate SHAP values for multiple tumors against a single drug.
+
+    Builds the interaction model and GradientExplainer once, then batches
+    all query tumors through in chunks. Uses the global mean tumor baseline
+    rather than per-tumor LOO means.
+
+    Parameters
+    ----------
+    M : keras.Model
+        The model to use for predictions.
+    D : Dataset
+        The dataset containing the drug and tumor encoders.
+    drug_id : str
+        The ID of the drug to analyze.
+    tumor_ids : list[str]
+        The IDs of the tumors to analyze.
+    n_bg_samples : int, optional
+        Number of background samples to use for SHAP, by default 10.
+    n_shap_samples : int, optional
+        Number of samples to use for SHAP, by default 1000.
+    sorted_tumors : list[str] | None, optional
+        Pre-sorted list of tumor IDs to use as background, by default None.
+    batch_size : int, optional
+        Number of tumors to process per SHAP call, by default 32.
+
+    Returns
+    -------
+    dict[str, tuple[pd.DataFrame, pd.DataFrame]]
+        Mapping from tumor ID to (shap_values_t, shap_values_d).
+    """
+    t_ids = sorted(list(set(D.cell_ids)))
+    if tumor_ids is None:
+        tumor_ids = t_ids
+    else:
+        available = set(t_ids)
+        tumor_ids = [t for t in tumor_ids if t in available]
+
+    d_ids = sorted(list(D.drug_encoders["mol"].keys()))
+
+    x_all_tumors = D.cell_encoders["exp"].data.loc[t_ids]
+    x_all_drugs = D.drug_encoders["mol"].data.loc[d_ids]
+    _, t_dim = x_all_tumors.shape
+    _, d_dim = x_all_drugs.shape
+
+    # Global mean baseline (includes query tumors — negligible difference at scale)
+    t_baseline = x_all_tumors.mean().values[None, :]
+    d_baseline = np.zeros((1, d_dim))
+
+    # Build interaction model and explainer once
+    predict_func = create_predict_func(M, t_baseline, d_baseline)
+
+    if sorted_tumors is None:
+        sorted_tumors = list(t_ids)
+        np.random.shuffle(sorted_tumors)
+
+    bg_candidates = list(sorted_tumors)
+    t_bg = x_all_tumors.loc[bg_candidates[:n_bg_samples]].values
+    d_bg = np.tile(x_all_drugs.loc[drug_id].values[None, :], (n_bg_samples, 1))
+    x_bg = np.hstack([t_bg, d_bg])
+
+    explainer = shap.GradientExplainer(predict_func, [x_bg])
+
+    # Stack all query pairs
+    x_d = x_all_drugs.loc[[drug_id]].values
+    x_pairs = np.vstack(
+        [np.hstack([x_all_tumors.loc[[tid]].values, x_d]) for tid in tumor_ids]
+    )
+
+    # Run SHAP in chunks
+    shap_chunks = []
+    for i in tqdm(range(0, len(tumor_ids), batch_size), desc="SHAP batches"):
+        chunk = x_pairs[i : i + batch_size]
+        sv = explainer.shap_values(chunk, nsamples=n_shap_samples)
+
+        # GradientExplainer may return list-of-arrays for outputs.
+        if isinstance(sv, list):
+            sv = sv[0]
+
+        shap_chunks.append(np.asarray(sv))
+
+    shap_matrix = np.concatenate(shap_chunks, axis=0)
+    shap_matrix = np.asarray(shap_matrix)
+
+    # Common single-output shape is (n_samples, n_features, 1).
+    if shap_matrix.ndim == 3 and shap_matrix.shape[-1] == 1:
+        shap_matrix = shap_matrix[..., 0]
+
+    if shap_matrix.ndim != 2:
+        raise ValueError(
+            f"Expected SHAP matrix to be 2D, got shape {shap_matrix.shape}"
+        )
+
+    # Split into per-tumor DataFrames
+    results = {}
+    for j, tid in enumerate(tumor_ids):
+        sv = np.asarray(shap_matrix[j]).reshape(-1)
+
+        sv_t = pd.DataFrame({"feat": x_all_tumors.columns, "value": sv[:t_dim]})
+        sv_d = pd.DataFrame(
+            {"feat": x_all_drugs.columns, "value": sv[t_dim : t_dim + d_dim]}
+        )
+        results[tid] = (sv_t, sv_d)
+
+    return results
 
 
 def simple_gsea(
@@ -264,12 +423,32 @@ def run_shap_gsea(
 
 
 def _get_embedding_model(
-    model: keras.Model, layer_name: str = "shared_mlp_2"
+    model: keras.Model,
+    layer_name: str = "shared_mlp_2",
 ) -> keras.Model:
-    """Get the embedding model from the ScreenDL ensemble."""
-    x_in = model.input
-    y_out = model.layers[-1].get_layer(layer_name).output
-    return keras.Model(x_in, y_out)
+    """Get an embedding model from a possibly wrapped ScreenDL model."""
+
+    # If this is a ScreenAhead/wrapper model, the actual ScreenDL model is nested.
+    # Use the nested model's own inputs and outputs, not outer inputs + inner outputs.
+    try:
+        target_layer = model.get_layer(layer_name)
+        return keras.Model(model.inputs, target_layer.output)
+    except ValueError:
+        pass
+
+    nested_models = [layer for layer in model.layers if isinstance(layer, keras.Model)]
+
+    for nested in nested_models:
+        try:
+            target_layer = nested.get_layer(layer_name)
+            return keras.Model(nested.inputs, target_layer.output)
+        except ValueError:
+            continue
+
+    raise ValueError(
+        f"Could not find layer {layer_name!r} in model or nested model. "
+        f"Top-level layers: {[layer.name for layer in model.layers]}"
+    )
 
 
 def get_ensemble_embeddings_for_drug(

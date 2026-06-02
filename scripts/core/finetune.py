@@ -37,6 +37,7 @@ import numpy as np
 import pprint as pp
 import tensorflow as tf
 import typing as t
+
 import tensorflow.keras.backend as K  # pyright: ignore[reportMissingImports]
 
 np.random.seed(1771)
@@ -53,8 +54,8 @@ from screendl.pipelines.core.screendl import (
     load_pretraining_configs,
     split_dataset,
 )
+from screendl.utils.serialization import to_jsonable
 from screendl.utils import model_utils
-
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -113,7 +114,7 @@ def finetune(args: argparse.Namespace) -> None:
 
     scores_file = os.path.join(args.dir, "scores.ft.json")
     with open(scores_file, "w", encoding="utf-8") as fh:
-        json.dump(scores, fh, ensure_ascii=False, indent=4)
+        json.dump(to_jsonable(scores), fh, ensure_ascii=False, indent=4)
 
     pp.pprint(scores)
 
