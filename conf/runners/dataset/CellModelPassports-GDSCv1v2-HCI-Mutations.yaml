@@ -1,6 +1,6 @@
 name: CellModelPassports-GDSCv1v2-HCI-Mutations
 
-dir: "${_datastore_}/datasets/${dataset.name}"
+dir: "${_datastore_}/${dataset.name}"
 
 split:
   dir: "${dataset.dir}/splits"

@@ -4,7 +4,7 @@ defaults:
   - model: ScreenDL
 
 _datastore_: ${hydra:runtime.cwd}/data
-_experiment_: ${_datastore_}/outputs/experiments/screenahead_gds_compare
+_experiment_: ${hydra:runtime.cwd}/outputs/experiments/screenahead_gds_compare
 
 hydra:
   run:
