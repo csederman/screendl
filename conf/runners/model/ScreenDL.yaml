@@ -7,15 +7,25 @@ hyper:
 
   activation: leaky_relu
   use_dropout: false
-  use_batch_norm: false
+  use_normalization: false
   use_l2: false
   use_noise: true
   dropout_rate: 0.0
   noise_stddev: 0.3
   l2_factor: 1e-4
   weight_decay: 1e-4
+  norm_type: null
+
+  interaction_mode: bilinear   # concat | bilinear
+  bilinear_dim: 64
+  include_bilinear_product: true
+  include_bilinear_score: false
 
   early_stopping: true
+  early_stopping_mode: "min"
+  early_stopping_monitor: "val_response_loss"
+  early_stopping_patience: 10
+  early_stopping_start_from_epoch: 3
 
   hidden_dims:
     exp: [512, 256, 128, 64]
@@ -25,11 +35,18 @@ hyper:
     ont: []
     shared: [128, 64]
 
+  aux:
+    enabled: true
+    drug_n_components: 16
+    cell_n_components: 16
+    drug_loss_weight: 0.01
+    cell_loss_weight: 0.01
+    extract_response_model: true
+
 feat:
   use_mut: false
   use_cnv: false
   use_ont: false
-  use_mr: false
 
 io:
   save: false

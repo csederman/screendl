@@ -4,7 +4,7 @@ defaults:
   - model: ScreenDL
 
 _datastore_: ${hydra:runtime.cwd}/data
-_experiment_: ${_datastore_}/outputs/experiments/pdx_validation
+_experiment_: ${hydra:runtime.cwd}/outputs/experiments/pdx_validation
 
 hydra:
   run:
@@ -29,6 +29,14 @@ xfer:
       - exp_mlp_1
       - mol_mlp_1
       - mol_mlp_2
+    aux:
+      enabled: true
+      drug_n_components: 16
+      cell_n_components: 16
+      drug_loss_weight: 0.001
+      cell_loss_weight: 0.001
+      extract_response_model: true
+      seed: 1441
 
 screenahead:
   opt:
@@ -37,7 +45,7 @@ screenahead:
     na_thresh: null
     selector: principal
     exclude_drugs: null
-    mode: screen-selected # screen-all or screen-selected
+    mode: screen-selected # screen-all | screen-selected | screen-non-pdx
   hyper:
     learning_rate: 1e-4
     batch_size: null
@@ -53,7 +61,7 @@ experiment:
   pdx_obs_path: ${_datastore_}/pdx/pdx_clinical_response.csv
   pdx_ids: null
   keep_pdmc_only_drugs: all
-  min_pdmcs_per_drug: 20
+  min_pdmcs_per_drug: 19
   background_correction: false
 
 output:

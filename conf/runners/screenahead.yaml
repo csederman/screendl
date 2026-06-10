@@ -7,11 +7,11 @@ _datastore_: ${hydra:runtime.cwd}/data
 
 hydra:
   run:
-    dir: ${_datastore_}/outputs/screenahead/${dataset.name}/${model.name}/runs/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    dir: ${hydra:runtime.cwd}/outputs/screenahead/${dataset.name}/${model.name}/runs/${now:%Y-%m-%d}_${now:%H-%M-%S}
   job:
     chdir: true
   sweep:
-    dir: ${_datastore_}/outputs/screenahead/${dataset.name}/${model.name}/multiruns/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    dir: ${hydra:runtime.cwd}/outputs/screenahead/${dataset.name}/${model.name}/multiruns/${now:%Y-%m-%d}_${now:%H-%M-%S}
     subdir: ${hydra:job.num}
   sweeper:
     params:
@@ -27,7 +27,6 @@ screenahead:
     batch_size: 32
     epochs: 20
   io:
-    predict_all: false
     permute_exp: false
 
 output:

@@ -1,6 +1,6 @@
 name: CellModelPassports-GDSCv1v2-HCI-Mutations
 
-dir: "${_datastore_}/datasets/${dataset.name}"
+dir: "${_datastore_}/${dataset.name}"
 
 split:
   dir: "${dataset.dir}/splits"
@@ -12,7 +12,7 @@ sources:
 
   screendl:
     exp: "${dataset.dir}/ScreenDL/FeatureGeneExpression.csv"
-    mut: "${dataset.dir}/ScreenDL/FeatureSomaticMutations.csv"
+    mut: null
     ont: "${dataset.dir}/ScreenDL/FeatureCancerTypeOntology.csv"
     mol: "${dataset.dir}/ScreenDL/FeatureMorganFingerprints.csv"
 
@@ -28,6 +28,7 @@ sources:
 
 preprocess:
   norm: "grouped"
+  norm_exp: "between" # within or between
 
 output:
   save: false

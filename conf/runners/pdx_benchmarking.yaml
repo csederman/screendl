@@ -4,7 +4,7 @@ defaults:
   - dataset: CellModelPassports-GDSCv1v2-HCI
 
 _datastore_: ${hydra:runtime.cwd}/data
-_experiment_: ${_datastore_}/outputs/experiments/pdx_benchmarking
+_experiment_: ${hydra:runtime.cwd}/outputs/experiments/pdx_benchmarking
 
 hydra:
   run:
@@ -22,4 +22,4 @@ output:
   log: logs
 
 pdx_iter: 1
-pdx_path: ${_datastore_}/pdx/pdx_clinical_response.csv
+pdx_path: ${_datastore_}/PDX/PDXLabels.csv

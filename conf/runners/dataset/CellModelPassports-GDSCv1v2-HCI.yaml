@@ -1,6 +1,6 @@
 name: CellModelPassports-GDSCv1v2-HCI
 
-dir: "${_datastore_}/datasets/${dataset.name}"
+dir: "${_datastore_}/${dataset.name}"
 
 split:
   dir: "${dataset.dir}/splits"
@@ -25,6 +25,7 @@ sources:
 
 preprocess:
   norm: "grouped"
+  norm_exp: "between" # within or between
 
 output:
   save: false
