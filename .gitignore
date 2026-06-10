@@ -175,3 +175,6 @@ scripts/utils/
 /**/.scratch
 /**/*.local.sh
 /logs/
+
+# Ignore everything in the data/ directory
+/data/
