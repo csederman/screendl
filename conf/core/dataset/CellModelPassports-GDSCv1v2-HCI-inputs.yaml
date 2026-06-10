@@ -1,0 +1,21 @@
+# Preprocessed ScreenDL bundle (labels + ScreenDL features + sample meta).
+# Use with dataset.dir pointing at .../inputs/CellModelPassports-GDSCv1v2-HCI-v1.0.0 (or similar).
+# Raw .../datasets/CellModelPassports-GDSCv1v2/ has Omics*.csv only — no ScreenDL/ — and will not load.
+
+name: CellModelPassports-GDSCv1v2-HCI-inputs
+
+dir: "${_datastore_}/datasets/${dataset.name}"
+
+split:
+  dir: "${dataset.dir}/splits"
+  name: ""
+  id: 1
+
+sources:
+  labels: "${dataset.dir}/LabelsLogIC50.csv"
+  cell:
+    meta: "${dataset.dir}/MetaSampleAnnotations.csv"
+    exp: "${dataset.dir}/ScreenDL/FeatureGeneExpression.csv"
+  drug:
+    meta: "${dataset.dir}/MetaDrugAnnotations.csv"
+    mol: "${dataset.dir}/ScreenDL/FeatureMorganFingerprints.csv"

@@ -1,0 +1,16 @@
+# Native ScreenDL + ScreenAhead on GDSC cell lines (HCI 10-fold CV splits).
+defaults:
+  - screenahead
+  - override /dataset: CellModelPassports-GDSCv1v2-HCI
+  - _self_
+
+_datastore_: /scratch/ucgd/lustre-labs/marth/scratch/u1521317/screendl/data
+
+hydra:
+  sweep:
+    dir: /scratch/ucgd/lustre-labs/marth/scratch/u1521317/screendl_runs/outputs/screenahead/${dataset.name}/${model.name}/multiruns/${now:%Y-%m-%d}_${now:%H-%M-%S}
+
+screenahead:
+  opt:
+    n_drugs: 20
+    selector: principal

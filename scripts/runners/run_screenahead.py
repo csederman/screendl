@@ -41,9 +41,10 @@ PIPELINES = {"ScreenDL": "screendl"}
 )
 def run_sa(cfg: DictConfig) -> float:
     """"""
-    np.random.seed(cfg.seed)
-    random.seed(cfg.seed)
-    tf.random.set_seed(cfg.seed)
+    seed = cfg.get("seed", cfg.screenahead.opt.seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    tf.random.set_seed(seed)
 
     # What I should do here is just use importlib
     if not cfg.model.name in PIPELINES:

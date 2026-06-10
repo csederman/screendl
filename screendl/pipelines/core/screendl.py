@@ -20,7 +20,7 @@ from pathlib import Path
 from omegaconf import OmegaConf
 
 from cdrpy.data.preprocess import GroupStandardScaler
-from cdrpy.data.datasets import Dataset
+from cdrpy.datasets import Dataset
 from cdrpy.mapper import BatchedResponseGenerator
 
 from screendl.model import (

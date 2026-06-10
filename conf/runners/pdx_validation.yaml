@@ -48,6 +48,8 @@ screenahead:
     frozen_layer_names: null
 
 experiment:
+  # PDX *in vivo* mRECIST table (cell_id, drug_id, mRECIST). Omit or set use_pdx_clinical=false for PDXO-only.
+  use_pdx_clinical: true
   pdx_obs_path: ${_datastore_}/pdx/pdx_clinical_response.csv
   pdx_ids: null
   keep_pdmc_only_drugs: all

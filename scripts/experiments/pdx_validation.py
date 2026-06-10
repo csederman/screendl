@@ -42,6 +42,17 @@ if t.TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
+def _pdx_clinical_path_is_set(cfg: "DictConfig") -> bool:
+    """Return False to skip mRECIST / PDX-animal evaluation (PDXO-only run)."""
+    if not cfg.experiment.get("use_pdx_clinical", True):
+        return False
+    p = cfg.experiment.get("pdx_obs_path")
+    if p is None:
+        return False
+    s = str(p).strip()
+    return bool(s) and s.lower() not in ("none", "null")
+
+
 def get_id_prefix(pdmc_id: str) -> str:
     """Gets matching prefixes to avoid data leak."""
     if pdmc_id.startswith("HCI"):
@@ -109,14 +120,13 @@ def get_screenahead_dataset(
     num_drugs: int,
     exclude_drugs: t.List[str] | None = None,
 ) -> Dataset:
-    """"""
+    """Build the ScreenAhead fine-tuning drug set for one held-out tumor."""
     if mode == "screen-all":
-        screen_ds = dataset
-    elif mode == "screen-selected":
-        screen_ds, _ = get_screenahead_split(
-            dataset, drug_selector=drug_selector, num_drugs=num_drugs
-        )
-    elif mode == "screen-non-pdx":
+        screen_drugs = set(dataset.drug_ids)
+        if exclude_drugs is not None:
+            screen_drugs -= set(exclude_drugs)
+        screen_ds = dataset.select_drugs(screen_drugs, name="this_screen")
+    elif mode in {"screen-selected", "screen-non-pdx"}:
         screen_ds, _ = get_screenahead_split(
             dataset,
             drug_selector=drug_selector,
@@ -130,7 +140,17 @@ def get_screenahead_dataset(
 
 
 def load_pdx_data(cfg: DictConfig, pdmc_ds: Dataset) -> Dataset:
-    """Loads the raw PDX screening data."""
+    """Loads PDX *in vivo* clinical outcomes (mRECIST). Optional; use empty dataset to skip."""
+    if not _pdx_clinical_path_is_set(cfg):
+        # cdrpy Dataset.obs must include id, cell_id, drug_id, label (see cdrpy.datasets.base)
+        pdx_obs = pd.DataFrame(columns=["id", "cell_id", "drug_id", "label"])
+        return Dataset(
+            pdx_obs,
+            cell_encoders=pdmc_ds.cell_encoders,
+            drug_encoders=pdmc_ds.drug_encoders,
+            name="pdx_ds",
+        )
+
     pdx_obs = pd.read_csv(cfg.experiment.pdx_obs_path)
     pdx_obs = pdx_obs[pdx_obs["cell_id"].isin(pdmc_ds.cell_ids)]
     pdx_obs = pdx_obs[pdx_obs["drug_id"].isin(pdmc_ds.drug_ids)]
@@ -266,7 +286,7 @@ def run(cfg: DictConfig) -> None:
 
     log.info(f"Loading {dataset_name}...")
     dataset = data_loader(cfg)
-    all_drug_ids = list(dataset.drug_encoders["mol"].keys())
+    all_drug_ids = list(dataset.drug_encoders["mol"].data.index)
 
     log.info(f"Splitting {dataset_name}...")
     D_t_cell, D_v_cell, D_pdxo = data_splitter(cfg, dataset)
@@ -278,8 +298,12 @@ def run(cfg: DictConfig) -> None:
     pdx_ids = sorted(list(set(D_pdx.cell_ids)))
     pdx_drug_ids = sorted(list(set(D_pdx.drug_ids)))
 
-    # only consider drugs screened in cell lines or PDX lines (not PDXO-exclusive drugs)
-    target_drugs = set(D_pdx.drug_ids).union(D_t_cell.drug_ids).union(D_v_cell.drug_ids)
+    # With PDX clinical labels: keep drugs seen in cell lines or PDX animals (exclude PDXO-only).
+    # Without PDX: keep all PDXO drugs that overlap the cell-line drug universe for organoid eval.
+    if D_pdx.size > 0:
+        target_drugs = set(D_pdx.drug_ids).union(D_t_cell.drug_ids).union(D_v_cell.drug_ids)
+    else:
+        target_drugs = set(D_pdxo.drug_ids).union(D_t_cell.drug_ids).union(D_v_cell.drug_ids)
     D_pdxo = D_pdxo.select_drugs(target_drugs, name="pdmc_ds")
 
     log.info(f"Building {model_name}...")
@@ -305,20 +329,21 @@ def run(cfg: DictConfig) -> None:
     pdxo_results = []
     for D_t_pdxo, D_e_pdxo in tqdm(split_gen, total=D_pdxo.n_cells):
         D_e_pdx = D_pdx.select_cells(set(D_e_pdxo.cell_ids))
-        if D_e_pdx.size == 0:
-            continue
 
         # create background datasets against which we will normalize the predictions
         D_bg_pdxo = D_t_pdxo.select_drugs(set(D_e_pdxo.drug_ids))
-        D_bg_pdx = D_t_pdxo.select_drugs(set(D_e_pdx.drug_ids))
 
         bg_tumor_ids = list(set(D_bg_pdxo.cell_ids))
-        D_e_pdx_full = (
-            None
-            if D_e_pdx.size == 0
-            else data_utils.expand_dataset(D_e_pdx, [D_e_pdx.cell_ids[0]], all_drug_ids)
-        )
-        D_bg_pdx_full = data_utils.expand_dataset(D_bg_pdx, bg_tumor_ids, all_drug_ids)
+        # PDX-animal grid + background (only when clinical PDX rows exist for this organoid)
+        if D_e_pdx.size > 0:
+            D_bg_pdx = D_t_pdxo.select_drugs(set(D_e_pdx.drug_ids))
+            D_e_pdx_full = data_utils.expand_dataset(
+                D_e_pdx, [D_e_pdx.cell_ids[0]], all_drug_ids
+            )
+            D_bg_pdx_full = data_utils.expand_dataset(D_bg_pdx, bg_tumor_ids, all_drug_ids)
+        else:
+            D_e_pdx_full = None
+            D_bg_pdx_full = None
         D_e_pdxo_full = data_utils.expand_dataset(
             D_e_pdxo, [D_e_pdxo.cell_ids[0]], all_drug_ids
         )
@@ -441,8 +466,11 @@ def run(cfg: DictConfig) -> None:
     pdxo_results = pd.concat(pdxo_results)
     pdxo_results.to_csv("predictions_pdxo.csv", index=False)
 
-    pdx_results = pd.concat(pdx_results)
-    pdx_results.to_csv("predictions_pdx.csv", index=False)
+    if pdx_results:
+        pdx_results = pd.concat(pdx_results)
+        pdx_results.to_csv("predictions_pdx.csv", index=False)
+    else:
+        log.info("No PDX clinical evaluation (empty pdx_ds); skipping predictions_pdx.csv")
 
 
 if __name__ == "__main__":
